@@ -1,3 +1,4 @@
+from typing import Optional
 from headers import headers
 import requests
 import json
@@ -69,12 +70,11 @@ def parse_quote_data(raw_string: str) -> list[PriceDataPoint]:
 
 
 
-def send_request(type: str) -> str:
+def get_data(type: str) -> Optional[list[PriceDataPoint]]:
   """
   发送请求并解析数据
   """
   url = 'https://d.10jqka.com.cn/v6/time/{}/last.js'.format(type)
-
   request_headers = headers()
   
   params = {
@@ -87,11 +87,11 @@ def send_request(type: str) -> str:
   
 # 获取恒生指数分钟级K线
 def get_hsi_kline() -> list[PriceDataPoint]:
-  return send_request('176_HSI')
+  return get_data('176_HSI')
 
 # 获取纳斯达克指数分钟级K线
 def get_nasdaq_kline() -> list[PriceDataPoint]:
-  return send_request('88_IXIC')
+  return get_data('88_IXIC')
 
     
 if __name__ == "__main__":
