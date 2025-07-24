@@ -1,0 +1,64 @@
+"""市场数据模型."""
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Optional
+from enum import Enum
+
+class MarketDataType(Enum):
+    """市场数据类型."""
+    REALTIME = "realtime"
+    KLINE1M = "kline1m"
+    KLINE5M = "kline5m"
+    KLINE15M = "kline15m"
+    KLINE30M = "kline30m"
+    KLINE1H = "kline1h"
+    KLINE4H = "kline4h"
+    KLINE1D = "kline1d"
+    KLINE1W = "kline1w"
+    KLINE1MM = "kline1m"
+    KLINE3MM = "kline3m"
+    KLINE6MM = "kline6m"
+    KLINE1Y = "kline1y"
+
+class MarketSymbol(Enum):
+    HSI = "HSI"
+    NASDAQ = "NASDAQ"
+
+@dataclass
+class MarketData():
+    """市场数据模型."""
+    # 数据源
+    source: str
+    # 市场代码
+    symbol: MarketSymbol
+    # 类型
+    type: MarketDataType
+    # 价格
+    price: float
+    # 时间戳
+    timestamp: datetime
+    # 成交量
+    volume: Optional[int] = None
+    # 开盘价
+    open_price: Optional[float] = None
+    # 最高价
+    high_price: Optional[float] = None
+    # 最低价
+    low_price: Optional[float] = None
+    # 收盘价
+    close_price: Optional[float] = None
+    # 涨跌额
+    change: Optional[float] = None
+    # 涨跌幅
+    change_percent: Optional[float] = None
+
+
+@dataclass
+class MarketSourceInfo():
+    """市场数据源信息模型."""
+    # 数据源ID
+    source_id: str
+    # 数据源名称
+    source_name: str
+    # 支持的市场
+    supported_markets: List[MarketSymbol]
