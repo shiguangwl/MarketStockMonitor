@@ -1,5 +1,4 @@
 from datetime import datetime
-import logging
 from typing import List, Dict, Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -9,8 +8,9 @@ from wen_cai.price_data_point import SinaPriceDataPoint
 from wen_cai.sina_realtime_quote_client import SinaRealtimeQuoteClient
 from wen_cai.trading_hours_client import CurrentStatus, TradingDay, TradingHoursClient
 from wen_cai.wen_cai_client import WenCaiClient
+from utils.logger_config import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger('wen_cai_source')
 
 
 class WenCaiSource(AbstractFetcher):
@@ -35,18 +35,22 @@ class WenCaiSource(AbstractFetcher):
 
     def start(self) -> None:
         """启动数据源."""
-        logger.info("启动数据源 %s", self.get_source_info())
+        source_info = self.get_source_info()
+        logger.info(f"🚀 启动数据源: {source_info.source_name} ({source_info.source_id})")
+        
         scheduler1 = BackgroundScheduler()
         scheduler1.add_job(self._tick_update_realtime, 'interval', seconds=2)
         scheduler1.start()
+        logger.info("✅ 实时数据更新任务已启动 (每2秒)")
 
         scheduler2 = BackgroundScheduler()
         scheduler2.add_job(self._tick_update_kline, 'interval', seconds=15)
         scheduler2.start()
+        logger.info("✅ K线数据更新任务已启动 (每15秒)")
 
     def stop(self) -> None:
         """停止数据源."""
-        logger.warning("停止问财数据源")
+        logger.warning("🛑 停止问财数据源")
 
     def get_source_info(self) -> MarketSourceInfo:
         """获取数据源ID."""
@@ -101,11 +105,13 @@ class WenCaiSource(AbstractFetcher):
 
         results = self._get_sina_realtime_quote([MarketSymbol.HSI, MarketSymbol.NASDAQ])
         for key, value in results.items():
-            symbol = self.mapping.get(key)
-            if symbol:
+            symbol_str = self.mapping.get(key)
+            if symbol_str:
+                # 从字符串转换为枚举成员
+                symbol_enum = MarketSymbol(symbol_str)
                 self.notify(MarketData(
                     source=self.get_source_info().source_id,
-                    symbol=symbol,
+                    symbol=symbol_enum,
                     type=MarketDataType.REALTIME,
                     price=value.price,
                     timestamp=value.time
@@ -113,25 +119,30 @@ class WenCaiSource(AbstractFetcher):
 
     def _tick_update_kline(self) -> None:
         """K线数据更新"""
-        hsi_kline = self.wen_cai_client.get_hsi_kline()
-        nasdaq_kline = self.wen_cai_client.get_nasdaq_kline()
+        all_data_sources = {
+            MarketSymbol.HSI: self.wen_cai_client.get_hsi_kline,
+            MarketSymbol.NASDAQ: self.wen_cai_client.get_nasdaq_kline
+        }
 
-        all_data = [(MarketSymbol.HSI, hsi_kline), (MarketSymbol.NASDAQ, nasdaq_kline)]
+        fetch_status = True
+        for symbol, data_fetcher in all_data_sources.items():
+            try:
+                kline_list = data_fetcher()
+                if not kline_list:
+                    continue
 
-        latest_time = self.lastUpdateTime
-        new_latest_time = latest_time
-
-        for symbol, kline_list in all_data:
-            for item in kline_list:
-                if latest_time is None or item.time > latest_time:
-                    self.notify(MarketData(
-                        source=self.get_source_info().source_id,
-                        symbol=symbol,
-                        type=MarketDataType.KLINE1M,
-                        price=item.price,
-                        timestamp=item.time
-                    ))
-                if new_latest_time is None or item.time > new_latest_time:
-                    new_latest_time = item.time
-
-        self.lastUpdateTime = new_latest_time
+                for item in kline_list:
+                    if self.lastUpdateTime is None or item.time > self.lastUpdateTime:
+                        self.notify(MarketData(
+                            source=self.get_source_info().source_id,
+                            symbol=symbol,
+                            type=MarketDataType.KLINE1M,
+                            price=item.price,
+                            timestamp=item.time
+                        ))
+            except Exception as e:
+                fetch_status = False
+                logger.error(f"❌ 更新 {symbol.value} K线数据时出错: {e}")
+        if fetch_status:
+            self.lastUpdateTime = datetime.now()
+        
