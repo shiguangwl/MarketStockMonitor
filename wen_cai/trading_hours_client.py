@@ -286,6 +286,102 @@ class TradingHoursClient:
                     
         return result
     
+    def get_next_opening_time(self, market: str) -> Optional[ParsedTradingRule]:
+        """
+        获取指定市场的下一次开盘时间。
+        此方法会首先查找常规交易日（周一至周五），然后排除掉特殊的节假日，
+        并处理提前收盘等特殊情况。
+
+        Args:
+            market (str): 市场标识 (例如 "HK", "NASDAQ", "HSI").
+
+        Returns:
+            Optional[ParsedTradingRule]: 返回下一个开盘时间的交易规则对象，
+                                        其中 date_pattern 会被替换为具体的日期 (YYYY-MM-DD)。
+                                        如果在未来一年内未找到开盘时间，则返回 None。
+        """
+        # 1. 预处理规则
+        original_market = market
+        if market == "HSI":
+            market = "HK"
+            
+        if market not in self.data_sources:
+            raise ValueError(f"不支持的市场: {original_market}")
+            
+        all_rules = self._fetch_trading_rules(market)
+        if not all_rules:
+            return None
+
+        # 将规则分为特殊日期规则和常规规则
+        date_pattern_regex = r'^\d{4}-\d{2}-\d{2}$'
+        special_day_rules = [r for r in all_rules if re.match(date_pattern_regex, r.date_pattern)]
+        regular_rules = [r for r in all_rules if not re.match(date_pattern_regex, r.date_pattern)]
+        
+        # 提取全天休市的特殊日期
+        full_day_holidays = set()
+        for rule in special_day_rules:
+            is_holiday_desc = any(keyword in rule.description for keyword in self.CLOSED_KEYWORDS)
+            is_full_day = rule.start_time == "00:00:00" and rule.end_time == "24:00:00"
+            if is_holiday_desc and is_full_day:
+                full_day_holidays.add(rule.date_pattern)
+
+        # 2. 循环查找下一个开盘日
+        data_source = self.data_sources[market]
+        market_tz = pytz.timezone(data_source.timezone)
+        now_market_time = datetime.now(market_tz)
+        
+        for i in range(365): # 搜索未来一年
+            target_date = now_market_time.date() + timedelta(days=i)
+            target_date_str = target_date.strftime("%Y-%m-%d")
+
+            # 3. 检查是否为全天假日
+            if target_date_str in full_day_holidays:
+                continue
+
+            # 4. 查找当天的常规开盘规则
+            # (weekday + 1) % 7 => Mon(0)->w1, ..., Sun(6)->w0
+            target_weekday_str = f"w{(target_date.weekday() + 1) % 7}"
+            
+            # 按优先级查找适用规则 (星期 > 通用)
+            applicable_regular_rules = [r for r in regular_rules if r.date_pattern == target_weekday_str]
+            if not applicable_regular_rules:
+                applicable_regular_rules = [r for r in regular_rules if r.date_pattern == '*']
+            
+            applicable_regular_rules.sort(key=lambda r: r.start_time)
+            
+            # 5. 遍历常规规则，并用特殊规则修正
+            for regular_rule in applicable_regular_rules:
+                is_opening_rule = not any(keyword in regular_rule.description for keyword in self.CLOSED_KEYWORDS)
+                if not is_opening_rule:
+                    continue
+
+                try:
+                    start_time = time_obj.fromisoformat(regular_rule.start_time)
+                except ValueError:
+                    continue
+
+                is_today = (i == 0)
+                if is_today and now_market_time.time() >= start_time:
+                    continue # 开盘时间已过
+
+                # 找到一个潜在的开盘时间，现在检查特殊规则
+                final_rule = regular_rule
+                
+                # 查找当天是否有特殊规则（非全天休市，例如半日市）
+                day_specific_rules = [r for r in special_day_rules if r.date_pattern == target_date_str and r.date_pattern not in full_day_holidays]
+                if day_specific_rules:
+                    # 假设当天的第一个特殊规则就是修正规则
+                    final_rule = day_specific_rules[0]
+
+                return ParsedTradingRule(
+                    date_pattern=target_date_str,
+                    start_time=final_rule.start_time,
+                    end_time=final_rule.end_time,
+                    description=final_rule.description
+                )
+
+        return None
+
     def clear_trading_rules_cache(self) -> None:
         """
         清除交易规则缓存。

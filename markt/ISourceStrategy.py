@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, List, Callable
 
 from models.market_data import MarketData, MarketDataType, MarketSourceInfo, MarketSymbol
+from wen_cai.price_data_point import ParsedTradingRule
 from wen_cai.trading_hours_client import CurrentStatus, TradingDay
 
 
@@ -76,6 +77,12 @@ class ISourceStrategy(abc.ABC):
     @abc.abstractmethod
     def get_latest_data(self, market: MarketSymbol, type: MarketDataType) -> MarketData:
         """获取指定市场的最新数据.
+        """
+        pass
+    
+    @abc.abstractmethod
+    def get_next_opening_time(self, market: MarketSymbol) -> ParsedTradingRule:
+        """获取指定市场的下一个开盘时间.
         """
         pass
 

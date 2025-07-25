@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from markt.ISourceStrategy import AbstractFetcher
 from models.market_data import MarketDataType, MarketSourceInfo, MarketSymbol, MarketData
-from wen_cai.price_data_point import SinaPriceDataPoint
+from wen_cai.price_data_point import ParsedTradingRule, SinaPriceDataPoint
 from wen_cai.sina_realtime_quote_client import SinaRealtimeQuoteClient
 from wen_cai.trading_hours_client import CurrentStatus, TradingDay, TradingHoursClient
 from wen_cai.wen_cai_client import WenCaiClient
@@ -82,6 +82,10 @@ class WenCaiSource(AbstractFetcher):
                 return self._mapping(self.wen_cai_client.get_hsi_kline()[-1])
             elif market == MarketSymbol.NASDAQ:
                 return self._mapping(self.wen_cai_client.get_nasdaq_kline()[-1])
+            
+    def get_next_opening_time(self, market: MarketSymbol) -> ParsedTradingRule:
+        """获取指定市场的下一个开盘时间."""
+        return self.trading_hours_client.get_next_opening_time(market.value)
 
     def _get_sina_realtime_quote(self, markets: List[MarketSymbol]) -> Dict[str, SinaPriceDataPoint]:
         stock_codes_to_fetch = []
