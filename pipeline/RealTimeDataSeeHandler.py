@@ -1,4 +1,3 @@
-from rpds import List
 from markt.IProcessingHandler import AbstractProcessingHandler
 from models.market_data import MarketData
 

@@ -5,11 +5,6 @@ from models.market_data import MarketDataType, MarketSymbol
 
 def main() -> None:
     wenCaiSource = WenCaiSource()
-    # 获取纳斯达克和香港最新价格
-    nasdaq_data = wenCaiSource.get_latest_data(MarketSymbol.NASDAQ, MarketDataType.REALTIME)
-    hsi_data = wenCaiSource.get_latest_data(MarketSymbol.HSI, MarketDataType.REALTIME)
-    print("纳斯达克最新价格: " + str(nasdaq_data))
-    print("香港最新价格: " + str(hsi_data))
     
     # 获取收盘状态和节假日计划
     nasdaq_status = wenCaiSource.get_market_status(datetime.now(), MarketSymbol.NASDAQ)
@@ -26,14 +21,15 @@ def main() -> None:
     # 获取K线数据
     nasdaq_kline = wenCaiSource.get_latest_data(MarketSymbol.NASDAQ, MarketDataType.KLINE1M)
     hsi_kline = wenCaiSource.get_latest_data(MarketSymbol.HSI, MarketDataType.KLINE1M)
-    print("纳斯达克K线数据: " + str(nasdaq_kline))
-    print("香港K线数据: " + str(hsi_kline))
+    print("纳斯达克K线数据(最新): " + str(nasdaq_kline))
+    print("香港K线数据(最新): " + str(hsi_kline))
     
     # 实时数据
     nasdaq_realtime = wenCaiSource.get_latest_data(MarketSymbol.NASDAQ, MarketDataType.REALTIME)
     hsi_realtime = wenCaiSource.get_latest_data(MarketSymbol.HSI, MarketDataType.REALTIME)
     print("纳斯达克实时数据: " + str(nasdaq_realtime))
     print("香港实时数据: " + str(hsi_realtime))
+
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import pytz
 import requests
 
-from price_data_point import SinaPriceDataPoint
+from .price_data_point import SinaPriceDataPoint
 
 
 class SinaRealtimeQuoteClient:
@@ -38,7 +38,6 @@ class SinaRealtimeQuoteClient:
         self.US_YEAR_IDX = 29         # 例如: "2025"
 
     def _to_float(self, value: str, default: float = 0.0) -> float:
-        """安全地将字符串转换为浮点数。"""
         try:
             return float(value)
         except (ValueError, TypeError):

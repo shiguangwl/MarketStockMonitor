@@ -1,9 +1,9 @@
 from typing import Optional
-from headers import headers
+from .headers import headers
 import requests
 import json
 from datetime import datetime, timedelta
-from price_data_point import SinaPriceDataPoint
+from .price_data_point import SinaPriceDataPoint
 
 
 class WenCaiClient:
