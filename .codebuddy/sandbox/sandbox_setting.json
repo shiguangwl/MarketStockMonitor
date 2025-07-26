@@ -1,0 +1,20 @@
+{
+  "path": "/Users/mac/Desktop/Time/IdeaProjects/0MyProject/2-ShiShiCai/MarketStockMonitor",
+  "desc": "这是一个MarketStockMonitor股票市场监控系统，提供实时数据推送和SSE功能。主要功能包括：1) 多数据源支持（问财等）；2) 实时市场数据获取（HSI、NASDAQ等）；3) SSE实时数据推送；4) 统一的API接口；5) 支持多市场和多数据类型筛选的数据流。",
+  "id": "813e11ee039f47238a476a6723adf095",
+  "data": {
+    "spaceKey": "813e11ee039f47238a476a6723adf095",
+    "connections": {
+      "webIDE": "https://813e11ee039f47238a476a6723adf095.ap-singapore.cloudstudio.club",
+      "preview": "https://813e11ee039f47238a476a6723adf095--{port}.ap-singapore.cloudstudio.club",
+      "api": "https://813e11ee039f47238a476a6723adf095--api.ap-singapore.cloudstudio.club",
+      "pty": "https://813e11ee039f47238a476a6723adf095--pty.ap-singapore.cloudstudio.club"
+    }
+  },
+  "config": {
+    "api": "https://813e11ee039f47238a476a6723adf095--api.ap-singapore.cloudstudio.club",
+    "pty": "https://813e11ee039f47238a476a6723adf095--pty.ap-singapore.cloudstudio.club",
+    "region": "ap-shanghai",
+    "spaceKey": "813e11ee039f47238a476a6723adf095"
+  }
+}

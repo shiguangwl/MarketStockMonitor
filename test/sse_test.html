@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统一SSE数据流测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        input, button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .data-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .data-panel {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #fafafa;
+        }
+        .data-panel h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+        .data-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log {
+            height: 300px;
+            overflow-y: auto;
+            background: #212529;
+            color: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .log-entry.info {
+            color: #17a2b8;
+        }
+        .log-entry.error {
+            color: #dc3545;
+        }
+        .log-entry.data {
+            color: #28a745;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 统一SSE数据流测试</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="baseUrl">服务地址:</label>
+                <input type="text" id="baseUrl" value="http://localhost:8000" />
+            </div>
+            <div class="control-group">
+                <label for="sources">数据源 (逗号分隔，空=全部):</label>
+                <input type="text" id="sources" placeholder="wen_cai" />
+            </div>
+            <div class="control-group">
+                <label for="markets">市场 (逗号分隔，空=全部):</label>
+                <input type="text" id="markets" placeholder="HSI,NASDAQ" />
+            </div>
+            <div class="control-group">
+                <label for="dataTypes">数据类型 (逗号分隔，空=全部):</label>
+                <input type="text" id="dataTypes" placeholder="realtime,kline1m" />
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="connectBtn" onclick="connectSSE()">🔗 连接数据流</button>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="disconnectBtn" onclick="disconnectSSE()" disabled>❌ 断开连接</button>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button onclick="getStats()">📊 获取统计</button>
+            </div>
+        </div>
+        
+        <div id="status" class="status disconnected">🔴 未连接</div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="dataCount">0</div>
+                <div class="stat-label">接收数据</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="connectionTime">00:00</div>
+                <div class="stat-label">连接时长</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="dataRate">0.0</div>
+                <div class="stat-label">数据频率/秒</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">错误次数</div>
+            </div>
+        </div>
+        
+        <div class="data-display">
+            <div class="data-panel">
+                <h3>📈 实时数据</h3>
+                <div id="marketData">等待数据连接...</div>
+            </div>
+            
+            <div class="data-panel">
+                <h3>📝 连接日志</h3>
+                <div id="log" class="log">
+                    <div class="log-entry info">[系统] SSE测试工具已准备就绪</div>
+                </div>
+                <button onclick="clearLog()" style="margin-top: 10px; width: 100%;">清空日志</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let isConnected = false;
+        let connectionStartTime = null;
+        let dataCount = 0;
+        let errorCount = 0;
+        let connectionTimer = null;
+
+        function updateStatus(message, connected = false) {
+            const statusEl = document.getElementById('status');
+            const icon = connected ? '🟢' : '🔴';
+            statusEl.textContent = `${icon} ${message}`;
+            statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            isConnected = connected;
+            
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+        }
+
+        function addLog(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logEl.appendChild(logEntry);
+            logEl.scrollTop = logEl.scrollHeight;
+            
+            if (logEl.children.length > 50) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        function updateStats() {
+            if (connectionStartTime) {
+                const elapsed = (Date.now() - connectionStartTime) / 1000;
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = Math.floor(elapsed % 60);
+                document.getElementById('connectionTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                const rate = elapsed > 0 ? (dataCount / elapsed).toFixed(1) : '0.0';
+                document.getElementById('dataRate').textContent = rate;
+            }
+            
+            document.getElementById('dataCount').textContent = dataCount;
+            document.getElementById('errorCount').textContent = errorCount;
+        }
+
+        function startConnectionTimer() {
+            connectionStartTime = Date.now();
+            connectionTimer = setInterval(updateStats, 1000);
+        }
+
+        function stopConnectionTimer() {
+            if (connectionTimer) {
+                clearInterval(connectionTimer);
+                connectionTimer = null;
+            }
+        }
+
+        function connectSSE() {
+            if (isConnected) return;
+
+            const baseUrl = document.getElementById('baseUrl').value;
+            const sources = document.getElementById('sources').value.trim();
+            const markets = document.getElementById('markets').value.trim();
+            const dataTypes = document.getElementById('dataTypes').value.trim();
+
+            // 构建URL参数
+            const params = new URLSearchParams();
+            if (sources) params.append('sources', sources);
+            if (markets) params.append('markets', markets);
+            if (dataTypes) params.append('data_types', dataTypes);
+
+            const url = `${baseUrl}/api/sources/stream?${params.toString()}`;
+            
+            addLog(`连接到: ${url}`, 'info');
+            updateStatus('正在连接...', false);
+
+            eventSource = new EventSource(url);
+            startConnectionTimer();
+
+            eventSource.onopen = function(event) {
+                updateStatus('已连接到数据流', true);
+                addLog('✅ SSE连接已建立', 'info');
+            };
+
+            eventSource.addEventListener('connected', function(event) {
+                const data = JSON.parse(event.data);
+                addLog(`🎉 ${data.message}`, 'info');
+                addLog(`🔗 连接ID: ${data.connection_id}`, 'info');
+            });
+
+            eventSource.addEventListener('market_data', function(event) {
+                const data = JSON.parse(event.data);
+                updateMarketData(data);
+                dataCount++;
+                addLog(`📊 ${data.source}/${data.symbol}/${data.type}: ${data.price}`, 'data');
+                updateStats();
+            });
+
+            eventSource.addEventListener('heartbeat', function(event) {
+                const data = JSON.parse(event.data);
+                addLog(`💓 心跳: ${data.timestamp}`, 'info');
+            });
+
+            eventSource.addEventListener('error', function(event) {
+                const data = JSON.parse(event.data);
+                addLog(`❌ 服务器错误: ${data.message}`, 'error');
+                errorCount++;
+                updateStats();
+            });
+
+            eventSource.onerror = function(event) {
+                addLog('❌ SSE连接错误', 'error');
+                updateStatus('连接错误', false);
+                errorCount++;
+                updateStats();
+                stopConnectionTimer();
+            };
+        }
+
+        function disconnectSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            updateStatus('已断开连接', false);
+            addLog('🔌 SSE连接已断开', 'info');
+            stopConnectionTimer();
+        }
+
+        function updateMarketData(data) {
+            const marketDataEl = document.getElementById('marketData');
+            const dataItem = document.createElement('div');
+            dataItem.className = 'data-item';
+            dataItem.innerHTML = `
+                <strong>${data.source}/${data.symbol}/${data.type}</strong><br>
+                价格: ${data.price}<br>
+                时间: ${data.timestamp}
+            `;
+            
+            marketDataEl.insertBefore(dataItem, marketDataEl.firstChild);
+            
+            // 限制显示的数据条数
+            if (marketDataEl.children.length > 10) {
+                marketDataEl.removeChild(marketDataEl.lastChild);
+            }
+        }
+
+        async function getStats() {
+            try {
+                const baseUrl = document.getElementById('baseUrl').value;
+                const response = await fetch(`${baseUrl}/api/sources/stream/stats`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addLog(`📊 统计信息: ${JSON.stringify(data.stats)}`, 'info');
+                } else {
+                    addLog(`❌ 获取统计失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ 获取统计异常: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '<div class="log-entry info">[系统] 日志已清空</div>';
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('🚀 统一SSE测试工具初始化完成', 'info');
+        });
+    </script>
+</body>
+</html>

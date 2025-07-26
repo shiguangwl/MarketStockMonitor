@@ -5,16 +5,22 @@ import uvicorn
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi import Request
 
 from app.config.settings import get_settings
 from app.middleware.cors import setup_cors
 from app.middleware.exception_handler import setup_exception_handlers
 from app.controllers import health_router, sources_router, market_router
 from app.services import SourceService, MarketService
+from app.services.sse_manager import get_sse_manager
 
 # 导入原有的数据源和处理器
 from markt.impl.WenCaiSource import WenCaiSource
 from pipeline.ConsoleLogHandler import ConsoleLogHandler
+from pipeline.KlinkCustomNotifyHandler import KlinkCustomNotifyHandler
 from models.market_data import MarketData
 from utils.logger_config import setup_market_data_logger, setup_api_logger
 
@@ -33,8 +39,7 @@ source_list = [
 # 数据分发链
 pipelines = [
     ConsoleLogHandler(format_type='detailed'),
-    # RealTimeDataSeeHandler(),
-    # KlinkCustomNotifyHandler(),
+    KlinkCustomNotifyHandler(),
 ]
 
 # 服务实例
@@ -45,8 +50,35 @@ market_service = MarketService(source_service)
 def data_handler(data: MarketData) -> None:
     """数据处理回调函数."""
     try:
+        # 处理原有的数据管道
         for pipeline in pipelines:
             pipeline.process(data)
+        
+        # 广播数据到SSE连接
+        sse_manager = get_sse_manager()
+        try:
+            loop = asyncio.get_running_loop()
+            # 创建任务来广播数据
+            task = asyncio.create_task(sse_manager.broadcast_data(data))
+            market_logger.debug(f"📡 创建SSE广播任务: {data.symbol.value} - {data.price}")
+        except RuntimeError:
+            # 没有运行的事件循环，使用线程池执行
+            import concurrent.futures
+            import threading
+            
+            def run_broadcast():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(sse_manager.broadcast_data(data))
+                    loop.close()
+                    market_logger.debug(f"📡 后台线程SSE广播完成: {data.symbol.value}")
+                except Exception as e:
+                    market_logger.error(f"SSE广播异常: {str(e)}")
+            
+            # 在后台线程中运行
+            threading.Thread(target=run_broadcast, daemon=True).start()
+
     except Exception as e:
         market_logger.error(f"❌ 数据处理失败: {str(e)}")
 
@@ -104,6 +136,17 @@ def create_app() -> FastAPI:
     setup_cors(app, settings)
     setup_exception_handlers(app)
     
+    # 挂载静态文件
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    
+    # 设置模板
+    templates = Jinja2Templates(directory="templates")
+    
+    # 添加根路径路由
+    @app.get("/", response_class=HTMLResponse)
+    async def read_root(request: Request):
+        return templates.TemplateResponse("index.html", {"request": request})
+    
     # 注册路由
     app.include_router(health_router)
     app.include_router(sources_router, prefix=settings.api_prefix)
@@ -128,20 +171,12 @@ app = create_app()
 
 # 导入依赖注入函数
 from app.controllers.health import get_source_service as health_get_source_service
-from app.controllers.sources import get_source_service as sources_get_source_service  
+from app.controllers.sources import get_source_service as sources_get_source_service
+from app.controllers.sources import get_market_service as sources_get_market_service
 from app.controllers.market import get_market_service as market_get_market_service
 
 # 使用FastAPI的依赖注入覆盖
 app.dependency_overrides[health_get_source_service] = lambda: source_service
 app.dependency_overrides[sources_get_source_service] = lambda: source_service
+app.dependency_overrides[sources_get_market_service] = lambda: market_service
 app.dependency_overrides[market_get_market_service] = lambda: market_service
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.reload,
-        access_log=True
-    )

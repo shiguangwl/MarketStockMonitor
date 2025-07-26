@@ -1,0 +1,37 @@
+# 使用包含Python和Node.js的基础镜像
+FROM python:3.11
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装Node.js 18 (使用官方二进制包，更快)
+RUN curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+
+# 设置环境变量
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# 复制并安装Python依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+
+# 创建必要的目录
+RUN mkdir -p static templates logs
+
+# 复制项目文件
+COPY . .
+
+# 设置文件权限
+RUN chmod +x wen_cai/hexin-v.bundle.js
+
+# 暴露端口
+EXPOSE 8000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 启动命令
+CMD ["python", "app.py"]

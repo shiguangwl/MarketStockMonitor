@@ -305,34 +305,3 @@ price_data = response.json()
 response = requests.get("http://localhost:8000/api/sources/wen_cai/market-status/HSI")
 market_status = response.json()
 ```
-
-### JavaScript 示例
-```javascript
-// 获取数据源列表
-fetch('http://localhost:8000/api/sources')
-  .then(response => response.json())
-  .then(data => console.log(data));
-
-// 获取最新价格
-fetch('http://localhost:8000/api/sources/wen_cai/latest/HSI/realtime')
-  .then(response => response.json())
-  .then(data => console.log(data));
-```
-
-## 📝 注意事项
-
-1. **时间格式**: 所有时间都使用ISO 8601标准格式
-2. **编码**: API响应使用UTF-8编码
-3. **限流**: 建议合理控制请求频率，避免过于频繁的调用
-4. **缓存**: 实时数据会定期更新，建议根据业务需求设置合适的缓存策略
-5. **错误处理**: 建议在客户端实现适当的错误处理和重试机制
-
-## 🆕 版本更新
-
-### v1.0.0 (重构版本)
-- ✅ 完全重构的模块化架构
-- ✅ 统一的异常处理机制
-- ✅ 改进的API响应格式
-- ✅ 增强的参数验证
-- ✅ 完善的文档和示例
-- ✅ 保持向后兼容性

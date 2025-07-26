@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>市场股票监控中心</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部导航 -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">📈</span>
+                    市场股票监控中心
+                </h1>
+                <div class="connection-status">
+                    <span id="connectionStatus" class="status-indicator offline">离线</span>
+                    <span id="lastUpdate" class="last-update">未连接</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 控制面板 -->
+            <section class="control-panel" style="display: none">
+                <div class="panel-header">
+                    <h2>控制面板</h2>
+                    <button id="refreshBtn" class="btn btn-primary">刷新数据</button>
+                    <button id="testBtn" class="btn btn-secondary">测试连接</button>
+                </div>
+
+                <div class="controls">
+                    <!-- 数据源选择 -->
+                    <div class="control-group">
+                        <label>数据源:</label>
+                        <div id="sourceFilters" class="filter-buttons">
+                            <button class="filter-btn active" data-source="all">全部</button>
+                        </div>
+                    </div>
+
+                    <!-- 市场选择 -->
+                    <div class="control-group">
+                        <label>市场:</label>
+                        <div id="marketFilters" class="filter-buttons">
+                            <button class="filter-btn active" data-market="all">全部</button>
+                            <button class="filter-btn" data-market="HSI">恒生指数</button>
+                            <button class="filter-btn" data-market="NASDAQ">纳斯达克</button>
+                        </div>
+                    </div>
+
+                    <!-- 数据类型选择 -->
+                    <div class="control-group">
+                        <label>数据类型:</label>
+                        <div id="dataTypeFilters" class="filter-buttons">
+                            <button class="filter-btn active" data-type="all">全部</button>
+                            <button class="filter-btn" data-type="realtime">实时数据</button>
+                            <button class="filter-btn" data-type="kline1m">K线数据</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 市场概览 -->
+            <section class="market-overview">
+                <div class="panel-header">
+                    <h2>市场概览</h2>
+                    <div class="market-time" id="marketTime"></div>
+                </div>
+                
+                <div class="market-cards" id="marketCards">
+                    <!-- 市场卡片将动态生成 -->
+                </div>
+            </section>
+
+            <!-- K线图表区域 -->
+            <section class="charts-section">
+                <div class="panel-header">
+                    <h2>K线图表</h2>
+                    <div class="chart-controls">
+                        <select id="chartMarket" class="select-input">
+                            <option value="HSI">恒生指数</option>
+                            <option value="NASDAQ">纳斯达克</option>
+                        </select>
+                        <select id="chartTimeframe" class="select-input">
+                            <option value="1m">1分钟</option>
+                            <option value="5m">5分钟</option>
+                            <option value="15m">15分钟</option>
+                            <option value="1h">1小时</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="klineChart"></canvas>
+                </div>
+            </section>
+
+            <!-- 实时数据流 -->
+            <section class="data-stream">
+                <div class="panel-header">
+                    <h2>实时数据流</h2>
+                    <div class="stream-controls">
+                        <button id="pauseStream" class="btn btn-secondary">暂停</button>
+                        <button id="clearStream" class="btn btn-outline">清空</button>
+                    </div>
+                </div>
+                
+                <div class="stream-container">
+                    <div id="dataStream" class="data-list">
+                        <!-- 实时数据将在这里显示 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 数据源状态 -->
+            <section class="sources-status">
+                <div class="panel-header">
+                    <h2>数据源状态</h2>
+                </div>
+                
+                <div class="sources-grid" id="sourcesGrid">
+                    <!-- 数据源状态卡片将动态生成 -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingIndicator" class="loading-indicator">
+        <div class="spinner"></div>
+        <span>加载中...</span>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="errorToast" class="toast error-toast">
+        <span id="errorMessage"></span>
+        <button id="closeError" class="close-btn">&times;</button>
+    </div>
+
+    <!-- 成功提示 -->
+    <div id="successToast" class="toast success-toast">
+        <span id="successMessage"></span>
+        <button id="closeSuccess" class="close-btn">&times;</button>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
