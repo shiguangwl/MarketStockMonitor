@@ -2,8 +2,10 @@
 
 import hashlib
 import time
+import threading
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict
+from queue import Queue, Empty
 import requests
 
 from markt.IProcessingHandler import AbstractProcessingHandler
@@ -19,9 +21,12 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
     # 重试延迟时间配置（秒）
     RETRY_DELAYS = [15, 15, 30, 180, 600, 1200, 3600, 7200]  # 15秒, 15秒, 30秒, 3分钟, 10分钟, 20分钟, 1小时, 2小时
     
-    def __init__(self, notify_url: str = "http://xxxxx.com/api/draw/openDraw", 
-                 secret_key: str = "your_secret_key",
-                 request_timeout: int = 15):
+    def __init__(
+        self, notify_url: str = "http://192.168.1.250:8087/api/draw/openDraw", 
+        secret_key: str = "InrKOvmSZjsCxkwLxT0rTg==",
+        request_timeout: int = 15,
+        queue_max_size: int = 1000
+    ):
         """
         初始化通知处理器
         
@@ -29,11 +34,18 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
             notify_url: 通知接口地址
             secret_key: 签名密钥
             request_timeout: 请求超时时间(秒)
+            queue_max_size: 队列最大大小
         """
         self.notify_url = notify_url
         self.secret_key = secret_key
         self.request_timeout = request_timeout
         self.max_retries = len(self.RETRY_DELAYS)
+        self.queue_max_size = queue_max_size
+        
+        # 初始化数据队列
+        self.data_queue = Queue(maxsize=queue_max_size)
+        self._running = False
+        self._worker_thread = None
         
         # 配置HTTP会话
         self.session = requests.Session()
@@ -43,10 +55,51 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
             'Accept': 'application/json'
         })
         
-        logger.info(f"🔧 初始化K线通知处理器 - URL: {notify_url}, 超时: {request_timeout}秒, 最大重试: {self.max_retries}次")
+        # 启动后台处理线程
+        self._start_worker_thread()
+        
+        logger.info(f"🔧 初始化K线通知处理器 - URL: {notify_url}, 超时: {request_timeout}秒, 最大重试: {self.max_retries}次, 队列大小: {queue_max_size}")
 
-    def process(self, data: MarketData) -> None:
-        """处理数据"""
+    def _start_worker_thread(self) -> None:
+        """启动后台工作线程"""
+        if self._worker_thread is None or not self._worker_thread.is_alive():
+            self._running = True
+            self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+            self._worker_thread.start()
+            logger.info("🚀 启动K线通知后台处理线程")
+
+    def _worker_loop(self) -> None:
+        """后台工作线程循环"""
+        logger.info("🔄 K线通知后台处理线程开始运行")
+        
+        while self._running:
+            try:
+                # 从队列中获取数据，设置超时避免无限等待
+                data = self.data_queue.get(timeout=1.0)
+                
+                if data is None:  # 停止信号
+                    break
+                
+                logger.debug(f"📥 从队列中获取数据: {data.symbol.value} - {data.price}")
+                
+                # 异步处理数据
+                self._process_data_async(data)
+                
+                # 标记任务完成
+                self.data_queue.task_done()
+                
+            except Empty:
+                # 队列为空，继续循环
+                continue
+            except Exception as e:
+                if self._running:  # 只有在运行状态下才记录错误
+                    logger.error(f"❌ 后台处理线程发生错误: {e}", exc_info=True)
+                continue
+        
+        logger.info("🛑 K线通知后台处理线程已停止")
+
+    def _process_data_async(self, data: MarketData) -> None:
+        """异步处理单个数据项"""
         try:
             # 检查是否为分钟级别数据
             if not self._is_minute_data(data):
@@ -58,11 +111,27 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
                 logger.debug(f"⏭️ 当前分钟不是15的整数倍，跳过通知: {data.timestamp}")
                 return
             
-            logger.info(f"🎯 开始处理15分钟整数倍数据通知: {data}")
+            logger.info(f"🎯 开始异步处理15分钟整数倍数据通知: {data}")
             self.notifyRemoteApp(data)
             
         except Exception as e:
-            logger.error(f"❌ 处理数据时发生错误: {e}", exc_info=True)
+            logger.error(f"❌ 异步处理数据时发生错误: {e}", exc_info=True)
+
+    def process(self, data: MarketData) -> None:
+        """处理数据 - 快速入队，立即返回"""
+        
+        try:
+            # 检查队列是否已满
+            if self.data_queue.full():
+                logger.warning(f"⚠️ 通知队列已满({self.queue_max_size})，丢弃数据: {data.symbol.value}")
+                return
+            
+            # 将数据放入队列，非阻塞
+            self.data_queue.put_nowait(data)
+            logger.debug(f"📤 数据已入队: {data.symbol.value} - {data.price}, 队列大小: {self.data_queue.qsize()}")
+            
+        except Exception as e:
+            logger.error(f"❌ 数据入队失败: {e}", exc_info=True)
 
     def _is_minute_data(self, data: MarketData) -> bool:
         """检查是否为分钟级别数据"""
@@ -235,7 +304,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
                 notify_data = self._prepare_notify_data(data)
                 
                 logger.info(f"📡 第{attempt + 1}次尝试通知远程应用: {self.notify_url}")
-                logger.debug(f"📤 通知数据: {notify_data}")
+                logger.info(f"📤 通知数据: {notify_data}")
                 
                 # 发送请求
                 result = self._send_notification_request(notify_data)
@@ -293,11 +362,49 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
         logger.error(error_msg)
         raise Exception(error_msg)
 
+    def get_queue_status(self) -> Dict[str, Any]:
+        """获取队列状态信息"""
+        return {
+            "queue_size": self.data_queue.qsize(),
+            "queue_max_size": self.queue_max_size,
+            "queue_full": self.data_queue.full(),
+            "worker_running": self._running and (self._worker_thread is not None and self._worker_thread.is_alive())
+        }
+
     def close(self) -> None:
-        """关闭HTTP会话，释放资源"""
+        """关闭处理器，释放资源"""
+        logger.info("🛑 开始关闭K线通知处理器...")
+        
+        # 停止工作线程
+        self._running = False
+        
+        # 发送停止信号
+        try:
+            self.data_queue.put_nowait(None)
+        except:
+            pass
+        
+        # 等待工作线程结束
+        if self._worker_thread and self._worker_thread.is_alive():
+            logger.info("⏳ 等待后台处理线程结束...")
+            self._worker_thread.join(timeout=5.0)
+            if self._worker_thread.is_alive():
+                logger.warning("⚠️ 后台处理线程未能在5秒内结束")
+        
+        # 关闭HTTP会话
         if hasattr(self, 'session') and self.session:
             self.session.close()
             logger.debug("🔒 HTTP会话已关闭")
+        
+        # 清空队列
+        while not self.data_queue.empty():
+            try:
+                self.data_queue.get_nowait()
+                self.data_queue.task_done()
+            except:
+                break
+        
+        logger.info("✅ K线通知处理器已关闭")
 
     def __del__(self):
         """析构函数，确保资源被正确释放"""
