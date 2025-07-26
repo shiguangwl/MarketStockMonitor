@@ -81,7 +81,6 @@ async def sse_data_stream(
     )
     
     # 记录连接信息
-    # 记录连接信息
     filter_desc = []
     if source_list:
         filter_desc.append(f"数据源: {','.join(source_list)}")
@@ -93,7 +92,7 @@ async def sse_data_stream(
     if not filter_desc:
         filter_desc.append("全部数据")
     
-    api_logger.info(f"🔄 开始SSE数据流: {' | '.join(filter_desc)} (实时推送模式)")
+    api_logger.info(f"🔄 开始SSE数据流: {' | '.join(filter_desc)}")
     
     try:
         # 获取SSE管理器并创建连接
@@ -106,9 +105,7 @@ async def sse_data_stream(
                 # 创建连接
                 connection_id = sse_manager.create_connection(filter_config)
                 
-                # 发送连接确认
-                # 发送连接确认
-                # 构造连接确认数据
+                # 发送连接确认数据
                 connection_data = {
                     "message": "已连接到数据流",
                     "connection_id": connection_id,
@@ -135,7 +132,6 @@ async def sse_data_stream(
                     raise Exception("无法获取SSE连接")
                 
                 # 持续发送数据
-                # 持续发送数据 - 实时推送模式
                 while connection.connected:
                     try:
                         # 从连接队列获取数据 (阻塞等待)
@@ -147,7 +143,6 @@ async def sse_data_stream(
                             yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
                         else:
                             # 如果没有数据，发送保活心跳 (每30秒)
-                            # 如果没有数据，发送保活心跳 (每30秒)
                             heartbeat = {
                                 "event": "heartbeat",
                                 "connection_id": connection_id,
@@ -155,11 +150,9 @@ async def sse_data_stream(
                             }
                             yield f"event: heartbeat\n"
                             yield f"data: {json.dumps(heartbeat, ensure_ascii=False)}\n\n"
-                            # 心跳后等待一段时间
                             await asyncio.sleep(30)
                         
                     except Exception as e:
-                        # 发送错误消息
                         # 发送错误消息
                         error_data = {
                             "message": str(e),

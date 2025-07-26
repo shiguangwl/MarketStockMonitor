@@ -286,6 +286,7 @@ class TradingHoursClient:
                     
         return result
     
+    # TODO 应该返回TradingDay(装换过时区的数据)
     def get_next_opening_time(self, market: str) -> Optional[ParsedTradingRule]:
         """
         获取指定市场的下一次开盘时间。

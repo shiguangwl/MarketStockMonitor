@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional, Dict
 from queue import Queue, Empty
 import requests
-
+from models.market_data import MarketDataType
 from markt.IProcessingHandler import AbstractProcessingHandler
 from models.market_data import MarketData
 from utils.logger_config import setup_pipeline_logger
@@ -135,11 +135,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
 
     def _is_minute_data(self, data: MarketData) -> bool:
         """检查是否为分钟级别数据"""
-        # 这里可以根据实际的数据结构来判断
-        # 假设通过时间戳的秒数来判断，分钟级别数据秒数应该为0
-        if hasattr(data, 'timestamp') and isinstance(data.timestamp, datetime):
-            return data.timestamp.second == 0
-        return True  # 默认认为是分钟数据
+        return data.type == MarketDataType.KLINE1M
 
     def _is_quarter_minute(self, data: MarketData) -> bool:
         """检查是否为15分钟的整数倍(00、15、30、45分钟)"""

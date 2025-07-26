@@ -100,7 +100,7 @@ class WenCaiClient:
 
 
 if __name__ == "__main__":
-    client = WenCaiClient()  # 创建实例
+    client = WenCaiClient()
 
     print("恒生指数分钟级K线:")
     print(client.get_hsi_kline())
