@@ -10,18 +10,18 @@ from apscheduler.job import Job
 import threading
 from utils.logger_config import setup_logger
 
-logger = setup_logger('ticker_scheduler')
+logger = setup_logger("ticker_scheduler")
 
 
 class TickerScheduler:
     """股票数据抓取调度器"""
-    
+
     def __init__(self):
         self.scheduler = BackgroundScheduler()
         self.jobs: Dict[str, Job] = {}
         self.is_running = False
         self._lock = threading.Lock()
-        
+
     def start(self) -> None:
         """启动调度器"""
         with self._lock:
@@ -29,7 +29,7 @@ class TickerScheduler:
                 self.scheduler.start()
                 self.is_running = True
                 logger.info("🚀 定时任务调度器已启动")
-    
+
     def stop(self) -> None:
         """停止调度器"""
         with self._lock:
@@ -38,23 +38,19 @@ class TickerScheduler:
                 self.is_running = False
                 self.jobs.clear()
                 logger.info("🛑 定时任务调度器已停止")
-    
+
     def add_interval_job(
-        self, 
-        job_id: str, 
-        func: Callable, 
-        seconds: int, 
-        description: str = ""
+        self, job_id: str, func: Callable, seconds: int, description: str = ""
     ) -> bool:
         """
         添加间隔执行的定时任务
-        
+
         Args:
             job_id: 任务唯一标识
             func: 要执行的函数
             seconds: 执行间隔（秒）
             description: 任务描述
-            
+
         Returns:
             bool: 添加成功返回True，失败返回False
         """
@@ -63,32 +59,32 @@ class TickerScheduler:
                 if job_id in self.jobs:
                     logger.warning(f"⚠️ 任务 {job_id} 已存在，跳过添加")
                     return False
-                
+
                 job = self.scheduler.add_job(
                     func=func,
-                    trigger='interval',
+                    trigger="interval",
                     seconds=seconds,
                     id=job_id,
                     max_instances=1,  # 防止任务重叠执行
-                    coalesce=True     # 合并错过的任务
+                    coalesce=True,  # 合并错过的任务
                 )
-                
+
                 self.jobs[job_id] = job
                 desc_text = f" - {description}" if description else ""
                 logger.info(f"✅ 添加定时任务: {job_id} (每{seconds}秒){desc_text}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"❌ 添加定时任务 {job_id} 失败: {e}")
             return False
-    
+
     def remove_job(self, job_id: str) -> bool:
         """
         移除定时任务
-        
+
         Args:
             job_id: 任务唯一标识
-            
+
         Returns:
             bool: 移除成功返回True，失败返回False
         """
@@ -97,23 +93,23 @@ class TickerScheduler:
                 if job_id not in self.jobs:
                     logger.warning(f"⚠️ 任务 {job_id} 不存在")
                     return False
-                
+
                 self.scheduler.remove_job(job_id)
                 del self.jobs[job_id]
                 logger.info(f"🗑️ 移除定时任务: {job_id}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"❌ 移除定时任务 {job_id} 失败: {e}")
             return False
-    
+
     def pause_job(self, job_id: str) -> bool:
         """
         暂停定时任务
-        
+
         Args:
             job_id: 任务唯一标识
-            
+
         Returns:
             bool: 暂停成功返回True，失败返回False
         """
@@ -122,22 +118,22 @@ class TickerScheduler:
                 if job_id not in self.jobs:
                     logger.warning(f"⚠️ 任务 {job_id} 不存在")
                     return False
-                
+
                 self.scheduler.pause_job(job_id)
                 logger.info(f"⏸️ 暂停定时任务: {job_id}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"❌ 暂停定时任务 {job_id} 失败: {e}")
             return False
-    
+
     def resume_job(self, job_id: str) -> bool:
         """
         恢复定时任务
-        
+
         Args:
             job_id: 任务唯一标识
-            
+
         Returns:
             bool: 恢复成功返回True，失败返回False
         """
@@ -146,22 +142,22 @@ class TickerScheduler:
                 if job_id not in self.jobs:
                     logger.warning(f"⚠️ 任务 {job_id} 不存在")
                     return False
-                
+
                 self.scheduler.resume_job(job_id)
                 logger.info(f"▶️ 恢复定时任务: {job_id}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"❌ 恢复定时任务 {job_id} 失败: {e}")
             return False
-    
+
     def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
         """
         获取任务状态信息
-        
+
         Args:
             job_id: 任务唯一标识
-            
+
         Returns:
             Dict: 任务状态信息，如果任务不存在返回None
         """
@@ -169,24 +165,24 @@ class TickerScheduler:
             with self._lock:
                 if job_id not in self.jobs:
                     return None
-                
+
                 job = self.jobs[job_id]
                 return {
-                    'id': job.id,
-                    'name': job.name,
-                    'next_run_time': job.next_run_time,
-                    'trigger': str(job.trigger),
-                    'pending': job.pending
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run_time": job.next_run_time,
+                    "trigger": str(job.trigger),
+                    "pending": job.pending,
                 }
-                
+
         except Exception as e:
             logger.error(f"❌ 获取任务状态 {job_id} 失败: {e}")
             return None
-    
+
     def list_jobs(self) -> Dict[str, Dict[str, Any]]:
         """
         列出所有任务状态
-        
+
         Returns:
             Dict: 所有任务的状态信息
         """
@@ -197,23 +193,23 @@ class TickerScheduler:
                 if status:
                     result[job_id] = status
         return result
-    
+
     def is_job_running(self, job_id: str) -> bool:
         """
         检查任务是否正在运行
-        
+
         Args:
             job_id: 任务唯一标识
-            
+
         Returns:
             bool: 任务正在运行返回True，否则返回False
         """
         with self._lock:
             if job_id not in self.jobs:
                 return False
-            
+
             job = self.jobs[job_id]
-            return job.pending if hasattr(job, 'pending') else False
+            return job.pending if hasattr(job, "pending") else False
 
 
 # 全局调度器实例

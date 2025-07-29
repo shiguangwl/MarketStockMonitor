@@ -1,12 +1,15 @@
 """市场数据模型."""
+
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from enum import Enum
 import json
 
+
 class MarketDataType(Enum):
     """市场数据类型."""
+
     REALTIME = "realtime"
     KLINE1M = "kline1m"
     KLINE5M = "kline5m"
@@ -21,13 +24,16 @@ class MarketDataType(Enum):
     KLINE6MM = "kline6m"
     KLINE1Y = "kline1y"
 
+
 class MarketSymbol(Enum):
     HSI = "HSI"
     NASDAQ = "NASDAQ"
 
+
 @dataclass
-class MarketData():
+class MarketData:
     """市场数据模型."""
+
     # 数据源
     source: str
     # 市场代码
@@ -57,31 +63,36 @@ class MarketData():
         """转换为字典，用于JSON序列化."""
         data = asdict(self)
         # 转换枚举值
-        data['symbol'] = self.symbol.value
-        data['type'] = self.type.value
+        data["symbol"] = self.symbol.value
+        data["type"] = self.type.value
         # 格式化时间戳
-        data['timestamp'] = self.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        data["timestamp"] = self.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         return data
-    
+
     def to_json(self) -> str:
         """转换为JSON字符串."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
-    
+
     def __str__(self) -> str:
         """字符串表示，用于日志输出."""
-        return (f"MarketData(source={self.source}, symbol={self.symbol.value}, "
-                f"type={self.type.value}, price={self.price}, "
-                f"timestamp={self.timestamp.strftime('%Y-%m-%d %H:%M:%S')})")
-    
+        return (
+            f"MarketData(source={self.source}, symbol={self.symbol.value}, "
+            f"type={self.type.value}, price={self.price}, "
+            f"timestamp={self.timestamp.strftime('%Y-%m-%d %H:%M:%S')})"
+        )
+
     def to_simple_string(self) -> str:
         """简化的字符串表示."""
-        return (f"[{self.timestamp.strftime('%H:%M:%S')}] {self.symbol.value} "
-                f"({self.type.value}) -> ¥{self.price:.2f}")
+        return (
+            f"[{self.timestamp.strftime('%H:%M:%S')}] {self.symbol.value} "
+            f"({self.type.value}) -> ¥{self.price:.2f}"
+        )
 
 
 @dataclass
-class MarketSourceInfo():
+class MarketSourceInfo:
     """市场数据源信息模型."""
+
     # 数据源ID
     source_id: str
     # 数据源名称

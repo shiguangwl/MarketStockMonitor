@@ -38,7 +38,7 @@ source_list = [
 
 # 数据分发链
 pipelines = [
-    ConsoleLogHandler(format_type='detailed'),
+    ConsoleLogHandler(format_type="detailed"),
     KlinkCustomNotifyHandler(),
 ]
 
@@ -53,19 +53,21 @@ def data_handler(data: MarketData) -> None:
         # 处理原有的数据管道
         for pipeline in pipelines:
             pipeline.process(data)
-        
+
         # 广播数据到SSE连接
         sse_manager = get_sse_manager()
         try:
             loop = asyncio.get_running_loop()
             # 创建任务来广播数据
             task = asyncio.create_task(sse_manager.broadcast_data(data))
-            market_logger.debug(f"📡 创建SSE广播任务: {data.symbol.value} - {data.price}")
+            market_logger.debug(
+                f"📡 创建SSE广播任务: {data.symbol.value} - {data.price}"
+            )
         except RuntimeError:
             # 没有运行的事件循环，使用线程池执行
             import concurrent.futures
             import threading
-            
+
             def run_broadcast():
                 try:
                     loop = asyncio.new_event_loop()
@@ -75,7 +77,7 @@ def data_handler(data: MarketData) -> None:
                     market_logger.debug(f"📡 后台线程SSE广播完成: {data.symbol.value}")
                 except Exception as e:
                     market_logger.error(f"SSE广播异常: {str(e)}")
-            
+
             # 在后台线程中运行
             threading.Thread(target=run_broadcast, daemon=True).start()
 
@@ -86,17 +88,17 @@ def data_handler(data: MarketData) -> None:
 def init_data_core() -> None:
     """初始化市场数据核心系统."""
     market_logger.info("🚀 初始化市场数据核心系统")
-    
+
     # 注册回调
     for source in source_list:
         market_logger.info(f"注册数据源: {source.get_source_info().source_name}")
         source.attach(data_handler)
-    
+
     # 启动数据源
     for source in source_list:
         market_logger.info(f"启动数据源: {source.get_source_info().source_name}")
         source.start()
-    
+
     market_logger.info("✅ 市场数据核心系统初始化完成")
 
 
@@ -110,9 +112,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         api_logger.error(f"❌ 启动失败: {str(e)}")
         raise
-    
+
     yield
-    
+
     # 关闭时执行清理工作
     try:
         api_logger.info("🛑 MarketStockMonitor API 服务正在关闭...")
@@ -129,29 +131,29 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         lifespan=lifespan,
         docs_url=settings.docs_url,
-        redoc_url=settings.redoc_url
+        redoc_url=settings.redoc_url,
     )
-    
+
     # 设置中间件
     setup_cors(app, settings)
     setup_exception_handlers(app)
-    
+
     # 挂载静态文件
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    
+
     # 设置模板
     templates = Jinja2Templates(directory="templates")
-    
+
     # 添加根路径路由
     @app.get("/", response_class=HTMLResponse)
     async def read_root(request: Request):
         return templates.TemplateResponse("index.html", {"request": request})
-    
+
     # 注册路由
     app.include_router(health_router)
     app.include_router(sources_router, prefix=settings.api_prefix)
     app.include_router(market_router, prefix=settings.api_prefix)
-    
+
     return app
 
 
