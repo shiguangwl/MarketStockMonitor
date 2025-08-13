@@ -1,4 +1,6 @@
 from typing import Optional
+
+import pytz
 from .headers import headers
 import requests
 import json
@@ -87,8 +89,14 @@ class WenCaiClient:
             'hexin-v': request_headers.get('hexin-v')
         }
 
-        response = requests.get(url, params=params, headers=request_headers)
-        return self.parse_quote_data(response.text)
+        response = requests.get(url, params=params, headers=request_headers, timeout=10)
+        response.raise_for_status()
+        all_data = self.parse_quote_data(response.text)
+
+        now = datetime.now().replace(second=0, microsecond=0).astimezone(pytz.timezone('Asia/Shanghai'))
+        filtered_data = [data for data in all_data if data.time < now]
+        return filtered_data
+
 
     def get_hsi_kline(self) -> list[SinaPriceDataPoint]:
         """获取恒生指数分钟级K线"""

@@ -158,11 +158,18 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
         return data.type == MarketDataType.KLINE1M
 
     def _is_quarter_minute(self, data: MarketData) -> bool:
-        """检查是否为15分钟的整数倍(00、15、30、45分钟)"""
+        """检查是否为15分钟的整数倍(00、15、30、45分钟) 或 特殊时间 16:10"""
         if hasattr(data, "timestamp") and isinstance(data.timestamp, datetime):
             minute = data.timestamp.minute
-            return minute % 15 == 0
+            hour = data.timestamp.hour
+            is_quarter = minute % 15 == 0
+            is_special_time = (hour == 16 and minute == 10)
+            
+            if is_special_time:
+                logger.info(f"🎯 特殊时间 16:10 通知: {data}")
+            return is_quarter or is_special_time
         return False
+
 
     def _generate_sign(self, params: Dict[str, str]) -> str:
         """

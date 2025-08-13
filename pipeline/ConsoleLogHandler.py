@@ -1,11 +1,10 @@
 """控制台日志处理器."""
 
-import json
 from typing import Any
 from datetime import datetime
 
 from markt.IProcessingHandler import AbstractProcessingHandler
-from models.market_data import MarketData
+from models.market_data import MarketData, MarketDataType
 from utils.logger_config import setup_pipeline_logger
 
 logger = setup_pipeline_logger()
@@ -32,6 +31,9 @@ class ConsoleLogHandler(AbstractProcessingHandler):
             处理结果
         """
         try:
+            if data.type != MarketDataType.KLINE1M:
+                return
+            
             if self.format_type == "simple":
                 # 简化格式：时间 市场 类型 价格
                 message = data.to_simple_string()

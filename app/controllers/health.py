@@ -43,7 +43,7 @@ def read_root():
 def health_check(source_service: SourceService = Depends(get_source_service)):
     """健康检查端点."""
     uptime = datetime.now() - startup_time
-    api_logger.info("🔍 健康检查请求")
+    # api_logger.info("🔍 健康检查请求")
     
     return HealthResponse(
         status="healthy",

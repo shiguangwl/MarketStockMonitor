@@ -11,7 +11,7 @@ from models.market_data import (
     MarketSymbol,
 )
 from wen_cai.price_data_point import ParsedTradingRule
-from wen_cai.trading_hours_client import CurrentStatus, TradingDay
+from wen_cai.sina_trading_hours_client import CurrentStatus, TradingDay
 
 
 class ISourceStrategy(abc.ABC):

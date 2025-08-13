@@ -11,7 +11,7 @@ from models.market_data import (
 )
 from wen_cai.price_data_point import ParsedTradingRule, SinaPriceDataPoint
 from wen_cai.sina_realtime_quote_client import SinaRealtimeQuoteClient
-from wen_cai.trading_hours_client import CurrentStatus, TradingDay, TradingHoursClient
+from wen_cai.sina_trading_hours_client import CurrentStatus, TradingDay, TradingHoursClient
 from wen_cai.wen_cai_client import WenCaiClient
 from utils.logger_config import setup_logger
 
@@ -32,19 +32,16 @@ class WenCaiSource(AbstractFetcher):
             "恒生指数": MarketSymbol.HSI.value,
         }
         self.lastUpdateTime: Optional[datetime] = None
-        # 收盘后延续抓取的时间（分钟）
-        self.post_close_duration_minutes = 5
-        # 记录各市场的收盘时间
-        self.market_close_times: Dict[MarketSymbol, Optional[datetime]] = {
-            MarketSymbol.HSI: None,
-            MarketSymbol.NASDAQ: None,
-        }
         # 记录上次通知的数据数量
         self.last_notification_count = 0
 
         self.wen_cai_client = WenCaiClient()
         self.trading_hours_client = TradingHoursClient()
         self.sina_realtime_quote_client = SinaRealtimeQuoteClient()
+        
+        self.last_market_status = None   # 上一次市场开市状态
+        self.delay_stop_time = None      # 延迟停止时间
+        self.is_first_run = True        # 是否是第一次运行
 
     def start(self) -> None:
         """启动数据源"""
@@ -61,21 +58,21 @@ class WenCaiSource(AbstractFetcher):
         scheduler = get_global_scheduler()
         scheduler.start()
 
-        # 添加实时数据更新任务
+        # 添加数据更新任务，每5秒执行一次
         scheduler.add_interval_job(
-            job_id="wen_cai_realtime",
-            func=self._tick_update_realtime,
+            job_id="wen_cai_data_update_realtime",
+            func=self._update_realtime_data,
             seconds=1.5,
-            description="问财实时数据更新",
+            description="问财数据更新-实时数据",
         )
-
-        # 添加K线数据更新任务
+        
         scheduler.add_interval_job(
-            job_id="wen_cai_kline",
-            func=self._tick_update_kline,
-            seconds=15,
-            description="问财K线数据更新",
+            job_id="wen_cai_data_update_kline",
+            func=self._update_kline_data,
+            seconds=5,
+            description="问财数据更新-K线数据",
         )
+        
 
     def stop(self) -> None:
         """停止数据源"""
@@ -83,11 +80,8 @@ class WenCaiSource(AbstractFetcher):
 
         # 移除定时任务
         scheduler = get_global_scheduler()
-        scheduler.remove_job("wen_cai_realtime")
-        scheduler.remove_job("wen_cai_kline")
-
-        # 重置收盘时间记录
-        self.market_close_times = {MarketSymbol.HSI: None, MarketSymbol.NASDAQ: None}
+        scheduler.remove_job("wen_cai_data_update_realtime")
+        scheduler.remove_job("wen_cai_data_update_kline")
 
         # 保存最后更新时间，以便下次启动时可以继续增量抓取
         if self.lastUpdateTime:
@@ -149,12 +143,41 @@ class WenCaiSource(AbstractFetcher):
         data_point.name = self.mapping.get(data_point.name, data_point.name)
         return data_point
 
-    def _tick_update_realtime(self) -> None:
-        """实时数据更新"""
-        now = datetime.now()
 
-        # 检查是否应该继续抓取数据
-        if not self._should_continue_fetching(now):
+    def _should_continue_fetching(self) -> bool:
+        """判断当前是否应继续抓取数据（包括延迟停止时间段）"""
+        now = datetime.now()
+        
+        # 获取当前市场状态
+        market_status = self.get_market_status(now, MarketSymbol.HSI)
+        # 如果市场重新开市，取消延迟停止状态
+        if market_status.is_open and self.delay_stop_time is not None:
+            logger.info("📈 市场重新开市，取消延迟停止状态")
+            self.delay_stop_time = None
+        # 判断是否发生了状态切换：open -> close
+        if self.last_market_status is True and not market_status.is_open:
+            # 开始延迟停止计时（10分钟后）
+            self.delay_stop_time = now + timedelta(minutes=10)
+            logger.info(f"🕒 市场已关闭，将在10分钟后 ({self.delay_stop_time}) 停止数据抓取")
+        # 更新上一次状态
+        self.last_market_status = market_status.is_open
+        # 如果设置了 delay_stop_time，则检查是否已到达停止时间
+        if self.delay_stop_time:
+            if now >= self.delay_stop_time:
+                logger.info("⏹️ 延迟时间已到，停止数据抓取")
+                self.delay_stop_time = None  # 重置
+                return False
+            else:
+                logger.debug("⏳ 处于延迟停止阶段，继续抓取数据")
+                return True
+        # 正常情况下根据市场状态决定是否抓取
+        return market_status.is_open
+
+
+
+    def _update_realtime_data(self) -> None:
+        """实时数据更新"""
+        if not self._should_continue_fetching():
             return
 
         try:
@@ -177,12 +200,17 @@ class WenCaiSource(AbstractFetcher):
         except Exception as e:
             logger.error(f"❌ 实时数据更新时出错: {e}")
 
-    def _tick_update_kline(self) -> None:
-        """K线数据更新"""
-        now = datetime.now()
 
+    def _update_kline_data(self) -> None:
+        """K线数据更新"""
+        
         # 检查是否应该继续抓取数据
-        if not self._should_continue_fetching(now):
+        should_continue = self._should_continue_fetching()
+        
+        # 首次运行时即使市场关闭也要执行一次
+        if self.is_first_run:
+            self.is_first_run = False
+        elif not should_continue:
             return
 
         all_data_sources = {
@@ -199,16 +227,10 @@ class WenCaiSource(AbstractFetcher):
                 if not kline_list:
                     continue
 
-                # 筛选出新数据（时间大于上次更新时间的数据）
-                new_items = []
-                if self.lastUpdateTime is not None:
-                    new_items = [
-                        item for item in kline_list if item.time > self.lastUpdateTime
-                    ]
-                else:
-                    new_items = kline_list
+                new_items = [
+                    item for item in kline_list if self.lastUpdateTime is None or item.time > self.lastUpdateTime
+                ]
 
-                # 通知新数据
                 for item in new_items:
                     self.notify(
                         MarketData(
@@ -220,10 +242,7 @@ class WenCaiSource(AbstractFetcher):
                         )
                     )
 
-                    # 更新最大数据时间
-                    if max_data_time is None or (
-                        item.time and item.time > max_data_time
-                    ):
+                    if max_data_time is None or (item.time and item.time > max_data_time):
                         max_data_time = item.time
 
                 if new_items:
@@ -235,129 +254,9 @@ class WenCaiSource(AbstractFetcher):
                 fetch_status = False
                 logger.error(f"❌ 更新 {symbol.value} K线数据时出错: {e}")
 
-        # 只有在成功获取数据且有新的最大时间时才更新lastUpdateTime
         if fetch_status and max_data_time is not None:
             if self.lastUpdateTime is None:
                 logger.info(
                     f"📝 首次记录增量数据时间: {max_data_time.strftime('%Y-%m-%d %H:%M:%S')}"
                 )
-            else:
-                logger.info(
-                    f"📝 增量更新数据时间: {self.lastUpdateTime.strftime('%Y-%m-%d %H:%M:%S')} -> {max_data_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                )
             self.lastUpdateTime = max_data_time
-
-    def _should_continue_fetching(self, current_time: datetime) -> bool:
-        """
-        判断是否应该继续抓取数据
-
-        逻辑：
-        1. 如果任一市场正在交易，继续抓取
-        2. 如果所有市场都已收盘，检查是否在收盘后5分钟内
-        3. 超过5分钟后停止抓取
-
-        Args:
-            current_time: 当前时间
-
-        Returns:
-            bool: True表示继续抓取，False表示停止抓取
-        """
-        try:
-            # 获取各市场当前状态
-            hsi_status = self.get_market_status(current_time, MarketSymbol.HSI)
-            nasdaq_status = self.get_market_status(current_time, MarketSymbol.NASDAQ)
-
-            # 如果任一市场正在交易，继续抓取
-            if hsi_status.is_open or nasdaq_status.is_open:
-                # 重置收盘时间记录（因为市场还在交易）
-                if hsi_status.is_open:
-                    self.market_close_times[MarketSymbol.HSI] = None
-                if nasdaq_status.is_open:
-                    self.market_close_times[MarketSymbol.NASDAQ] = None
-                return True
-
-            # 所有市场都已收盘，检查收盘后延续抓取逻辑
-            return self._check_post_close_fetching(
-                current_time, hsi_status, nasdaq_status
-            )
-
-        except Exception as e:
-            logger.error(f"❌ 检查抓取状态时出错: {e}")
-            # 出错时保守处理，继续抓取
-            return True
-
-    def _check_post_close_fetching(
-        self,
-        current_time: datetime,
-        hsi_status: CurrentStatus,
-        nasdaq_status: CurrentStatus,
-    ) -> bool:
-        """
-        检查收盘后是否应该继续抓取数据
-
-        Args:
-            current_time: 当前时间
-            hsi_status: 恒生指数市场状态
-            nasdaq_status: 纳斯达克市场状态
-
-        Returns:
-            bool: True表示继续抓取，False表示停止抓取
-        """
-        should_continue = False
-
-        # 检查恒生指数收盘后延续抓取
-        if not hsi_status.is_open:
-            should_continue_hsi = self._check_market_post_close_fetching(
-                MarketSymbol.HSI, current_time
-            )
-            should_continue = should_continue or should_continue_hsi
-
-        # 检查纳斯达克收盘后延续抓取
-        if not nasdaq_status.is_open:
-            should_continue_nasdaq = self._check_market_post_close_fetching(
-                MarketSymbol.NASDAQ, current_time
-            )
-            should_continue = should_continue or should_continue_nasdaq
-
-        return should_continue
-
-    def _check_market_post_close_fetching(
-        self, market: MarketSymbol, current_time: datetime
-    ) -> bool:
-        """
-        检查单个市场收盘后是否应该继续抓取
-
-        Args:
-            market: 市场符号
-            current_time: 当前时间
-
-        Returns:
-            bool: True表示继续抓取，False表示停止抓取
-        """
-        # 如果还没有记录收盘时间，记录当前时间作为收盘时间
-        if self.market_close_times[market] is None:
-            self.market_close_times[market] = current_time
-            logger.info(
-                f"📝 记录 {market.value} 收盘时间: {current_time.strftime('%H:%M:%S')}"
-            )
-            return True  # 刚收盘，继续抓取
-
-        # 计算收盘后经过的时间
-        close_time = self.market_close_times[market]
-        elapsed_minutes = (current_time - close_time).total_seconds() / 60
-
-        if elapsed_minutes <= self.post_close_duration_minutes:
-            # 收盘后5分钟内，继续抓取
-            remaining_minutes = self.post_close_duration_minutes - elapsed_minutes
-            if int(elapsed_minutes) != int(elapsed_minutes - 0.1):  # 每分钟只记录一次
-                logger.info(
-                    f"⏰ {market.value} 收盘后延续抓取中，剩余 {remaining_minutes:.1f} 分钟"
-                )
-            return True
-        else:
-            # 超过5分钟，停止抓取
-            if (
-                elapsed_minutes <= self.post_close_duration_minutes + 0.1
-            ):  # 只在刚超时时记录一次
-                logger.info(f"⏹️ {market.value} 收盘后延续抓取结束")
-            return False

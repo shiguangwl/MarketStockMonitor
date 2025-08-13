@@ -2,7 +2,11 @@ FROM python:3.11
 
 WORKDIR /app
 
-RUN curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+ENV TZ=Asia/Shanghai
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+RUN curl -fsSL https://mirrors.aliyun.com/nodejs-release/v18.19.0/node-v18.19.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
 
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
@@ -20,7 +24,7 @@ RUN chmod +x wen_cai/hexin-v.bundle.js
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=300s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["python", "app.py"]
