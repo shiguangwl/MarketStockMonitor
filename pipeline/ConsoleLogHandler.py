@@ -1,13 +1,11 @@
 """控制台日志处理器."""
 
 from typing import Any
-from datetime import datetime
-
 from markt.IProcessingHandler import AbstractProcessingHandler
 from models.market_data import MarketData, MarketDataType
-from utils.logger_config import setup_pipeline_logger
+from utils.logger_config import setup_logger
 
-logger = setup_pipeline_logger()
+logger = setup_logger("ConsoleLogHandler")
 
 
 class ConsoleLogHandler(AbstractProcessingHandler):

@@ -94,7 +94,14 @@ class WenCaiClient:
         all_data = self.parse_quote_data(response.text)
 
         now = datetime.now().replace(second=0, microsecond=0).astimezone(pytz.timezone('Asia/Shanghai'))
-        filtered_data = [data for data in all_data if data.time < now]
+        filtered_data = []
+        for data in all_data:
+            if data.time.tzinfo is None:
+                data_time_aware = pytz.timezone('Asia/Shanghai').localize(data.time)
+            else:
+                data_time_aware = data.time
+            if data_time_aware < now:
+                filtered_data.append(data)
         return filtered_data
 
 
