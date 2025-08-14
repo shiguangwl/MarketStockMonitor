@@ -92,17 +92,25 @@ class WenCaiClient:
         response = requests.get(url, params=params, headers=request_headers, timeout=10)
         response.raise_for_status()
         all_data = self.parse_quote_data(response.text)
+        
+        # 移除最后一条数据的逻辑
+        # 特殊情况：最后一条数据时间为凌晨4点或下午4:10时不移除
+        if all_data and not self._is_special_closing_time(all_data[-1].time):
+            all_data = all_data[:-1]
+        
+        return all_data
+    
+    def _is_special_closing_time(self, timestamp: datetime) -> bool:
+        """
+        检查是否为特殊收盘时间点
+        """
+        return (
+            (timestamp.hour == 4 and timestamp.minute == 0) or     # 凌晨4点
+            (timestamp.hour == 16 and timestamp.minute == 10) or   # 下午4:10
+            (timestamp.hour == 12 and timestamp.minute == 0)       # 中午休市
+        )
 
-        now = datetime.now().replace(second=0, microsecond=0).astimezone(pytz.timezone('Asia/Shanghai'))
-        filtered_data = []
-        for data in all_data:
-            if data.time.tzinfo is None:
-                data_time_aware = pytz.timezone('Asia/Shanghai').localize(data.time)
-            else:
-                data_time_aware = data.time
-            if data_time_aware < now:
-                filtered_data.append(data)
-        return filtered_data
+
 
 
     def get_hsi_kline(self) -> list[SinaPriceDataPoint]:
