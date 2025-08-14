@@ -11,7 +11,7 @@ from models.market_data import MarketData
 from utils.logger_config import setup_logger, setup_pipeline_logger
 from utils.remote_notify import RemoteNotifier
 
-logger = setup_logger("KlinkCustomNotifyHandler")
+logger = setup_logger("NotifyHandler")
 
 class KlinkCustomNotifyHandler(AbstractProcessingHandler):
     """分钟K线数据在特定时间点触发远程通知，采用后台队列和循环重试机制."""
