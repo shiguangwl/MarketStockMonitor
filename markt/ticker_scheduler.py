@@ -10,7 +10,7 @@ from apscheduler.job import Job
 import threading
 from utils.logger_config import setup_logger
 
-logger = setup_logger("ticker_scheduler")
+logger = setup_logger("TickerScheduler")
 
 
 class TickerScheduler:
