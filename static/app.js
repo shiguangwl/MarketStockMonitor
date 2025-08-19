@@ -47,10 +47,6 @@ class MarketMonitor {
             this.updateChart();
         });
 
-        document.getElementById('chartTimeframe').addEventListener('change', () => {
-            this.updateChart();
-        });
-
         // 关闭提示框
         document.getElementById('closeError').addEventListener('click', () => {
             this.hideToast('error');
@@ -194,12 +190,14 @@ class MarketMonitor {
         const container = document.getElementById('marketCards');
         const cardId = `market-${data.market}`;
         let card = document.getElementById(cardId);
+        let isNewCard = false;
 
         if (!card) {
             card = document.createElement('div');
             card.id = cardId;
             card.className = 'market-card';
             container.appendChild(card);
+            isNewCard = true;
         }
 
         const marketData = data.data;
@@ -208,17 +206,33 @@ class MarketMonitor {
         const changeClass = change >= 0 ? 'positive' : 'negative';
         const changeSymbol = change >= 0 ? '+' : '';
 
-        card.innerHTML = `
-            <div class="market-card-content">
-                <div class="market-name">${marketData.name || data.market}</div>
-                <div class="market-price">${this.formatPrice(marketData.price)}</div>
-                <div class="market-change ${changeClass}">
-                    ${changeSymbol}${this.formatPrice(change)} (${changeSymbol}${changePercent.toFixed(2)}%)
+        // 如果是新卡片，生成完整的HTML包括状态
+        if (isNewCard) {
+            card.innerHTML = `
+                <div class="market-card-content">
+                    <div class="market-name">${marketData.name || data.market}</div>
+                    <div class="market-price">${this.formatPrice(marketData.price)}</div>
+                    <div class="market-change ${changeClass}">
+                        ${changeSymbol}${this.formatPrice(change)} (${changeSymbol}${changePercent.toFixed(2)}%)
+                    </div>
+                    <div class="market-volume">成交量: ${this.formatVolume(marketData.volume)}</div>
                 </div>
-                <div class="market-volume">成交量: ${this.formatVolume(marketData.volume)}</div>
-            </div>
-            <div class="market-status" id="status-${data.market}">未知</div>
-        `;
+                <div class="market-status" id="status-${data.market}">未知</div>
+            `;
+        } else {
+            // 如果是现有卡片，只更新价格等数据，不重新生成状态部分
+            const contentElement = card.querySelector('.market-card-content');
+            if (contentElement) {
+                contentElement.innerHTML = `
+                    <div class="market-name">${marketData.name || data.market}</div>
+                    <div class="market-price">${this.formatPrice(marketData.price)}</div>
+                    <div class="market-change ${changeClass}">
+                        ${changeSymbol}${this.formatPrice(change)} (${changeSymbol}${changePercent.toFixed(2)}%)
+                    </div>
+                    <div class="market-volume">成交量: ${this.formatVolume(marketData.volume)}</div>
+                `;
+            }
+        }
 
         // 存储市场数据
         this.marketData.set(data.market, marketData);
@@ -395,35 +409,43 @@ class MarketMonitor {
     initializeChart() {
         const ctx = document.getElementById('klineChart').getContext('2d');
         
-        // 使用普通的线图，因为candlestick可能不可用
         this.klineChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
                 datasets: [{
-                    label: '价格',
+                    label: '实时价格',
                     data: [],
                     borderColor: '#4299e1',
                     backgroundColor: 'rgba(66, 153, 225, 0.1)',
                     fill: true,
-                    tension: 0.1
+                    tension: 0.1,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 300
+                },
                 scales: {
                     x: {
                         title: {
                             display: true,
                             text: '时间'
+                        },
+                        ticks: {
+                            maxTicksLimit: 10
                         }
                     },
                     y: {
                         title: {
                             display: true,
                             text: '价格'
-                        }
+                        },
+                        beginAtZero: false
                     }
                 },
                 plugins: {
@@ -433,7 +455,12 @@ class MarketMonitor {
                     },
                     tooltip: {
                         mode: 'index',
-                        intersect: false
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+                            }
+                        }
                     }
                 },
                 interaction: {
@@ -447,7 +474,6 @@ class MarketMonitor {
 
     updateChart() {
         const market = document.getElementById('chartMarket').value;
-        const timeframe = document.getElementById('chartTimeframe').value;
         
         // 获取市场数据
         const marketDataArray = this.klineData.get(market) || [];
@@ -458,7 +484,7 @@ class MarketMonitor {
         
         this.klineChart.data.labels = labels;
         this.klineChart.data.datasets[0].data = prices;
-        this.klineChart.data.datasets[0].label = `${market} 价格走势 (${timeframe})`;
+        this.klineChart.data.datasets[0].label = `${market} 实时价格走势`;
         this.klineChart.update();
     }
 
@@ -471,7 +497,12 @@ class MarketMonitor {
         }
         
         const klineArray = this.klineData.get(market);
-        const time = new Date(marketData.time || Date.now()).toLocaleTimeString();
+        const now = new Date();
+        const time = now.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
         
         // 构造数据点
         const dataPoint = {
@@ -482,8 +513,8 @@ class MarketMonitor {
         
         klineArray.push(dataPoint);
         
-        // 限制数据点数量
-        if (klineArray.length > 50) {
+        // 限制数据点数量，保持最近30个数据点
+        if (klineArray.length > 30) {
             klineArray.shift();
         }
         
@@ -493,7 +524,7 @@ class MarketMonitor {
             this.updateChart();
         }
         
-        console.log(`更新 ${market} 图表数据:`, dataPoint);
+        console.log(`更新 ${market} 实时价格数据:`, dataPoint);
     }
 
     toggleStream() {

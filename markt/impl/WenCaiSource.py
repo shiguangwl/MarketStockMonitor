@@ -27,7 +27,7 @@ logger = setup_logger("wen_cai_source")
 
 
 class WenCaiSource(AbstractFetcher):
-    """问财数据源 - 重构版本"""
+    """问财数据源"""
 
     def __init__(self, config: WenCaiConfig = None):
         super().__init__()
@@ -109,9 +109,9 @@ class WenCaiSource(AbstractFetcher):
             supported_markets=[MarketSymbol.HSI, MarketSymbol.NASDAQ],
         )
 
-    def get_market_status(self, check_time: datetime, market: MarketSymbol) -> object:
-        """获取指定时间的指定市场状态"""
-        return self.market_status_manager._get_market_status(check_time)
+    def get_market_status(self, market: MarketSymbol, check_time: datetime = datetime.now()) -> object:
+        """获取当前时间的指定市场状态"""
+        return self.market_status_manager.get_market_status(market, check_time)
 
     def get_trading_hours(self, market: MarketSymbol) -> List[object]:
         """获取指定市场交易时间表"""
@@ -143,20 +143,18 @@ class WenCaiSource(AbstractFetcher):
         data_point.name = self.config.get_mapping(data_point.name, data_point.name)
         return data_point
 
-    def _should_continue_fetching(self) -> bool:
-        """判断当前是否应继续抓取数据"""
-        return self.market_status_manager.should_continue_fetching()
-
     def _update_realtime_data(self) -> None:
         """实时数据更新"""
-        if not self._should_continue_fetching():
+        # 获取当前应该继续抓取数据的市场列表
+        active_markets = self.market_status_manager.get_active_markets()
+        
+        if not active_markets:
+            logger.debug("📊 当前没有活跃的市场，跳过实时数据更新")
             return
 
         try:
-            # 获取实时数据
-            raw_data = self.data_fetcher.fetch_realtime_quotes(
-                [MarketSymbol.HSI, MarketSymbol.NASDAQ]
-            )
+            # 只获取活跃市场的实时数据
+            raw_data = self.data_fetcher.fetch_realtime_quotes(active_markets)
             
             # 处理数据
             processed_data = self.data_processor.process_realtime_data(
@@ -175,17 +173,19 @@ class WenCaiSource(AbstractFetcher):
         start_time = time.time()
         
         try:
-            # 检查是否应该继续抓取数据
-            should_continue = self._should_continue_fetching()
+            # 获取当前应该继续抓取数据的市场列表
+            active_markets = self.market_status_manager.get_active_markets()
             
             # 首次运行时即使市场关闭也要执行一次
             if self.market_status_manager.is_first_run_flag():
                 self.market_status_manager.reset_first_run_flag()
-            elif not should_continue:
+                active_markets = [MarketSymbol.HSI, MarketSymbol.NASDAQ]  # 首次运行获取所有市场数据
+            elif not active_markets:
+                logger.debug("📊 当前没有活跃的市场，跳过K线数据更新")
                 return
 
             # 使用超时机制执行数据获取
-            future = self.executor.submit(self._fetch_kline_data)
+            future = self.executor.submit(self._fetch_kline_data, active_markets)
             try:
                 result = future.result(timeout=self.config.kline_fetch_timeout)
                 if result:
@@ -213,9 +213,8 @@ class WenCaiSource(AbstractFetcher):
             if execution_time > self.config.execution_time_warning_threshold:
                 logger.warning(f"⚠️ K线数据更新耗时较长: {execution_time:.2f}秒")
 
-    def _fetch_kline_data(self) -> Optional[tuple]:
+    def _fetch_kline_data(self, markets: list[MarketSymbol]) -> Optional[tuple]:
         """实际执行K线数据获取的方法"""
-        markets = [MarketSymbol.HSI, MarketSymbol.NASDAQ]
         kline_data = self.data_fetcher.fetch_all_kline_data(markets)
         
         # 过滤有效数据

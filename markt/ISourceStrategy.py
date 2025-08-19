@@ -61,7 +61,7 @@ class ISourceStrategy(abc.ABC):
 
     @abc.abstractmethod
     def get_market_status(
-        self, check_time: datetime, market: MarketSymbol
+        self, market: MarketSymbol, check_time: datetime
     ) -> CurrentStatus:
         """获取指定时间的指定市场状态.
 

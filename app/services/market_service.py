@@ -95,10 +95,10 @@ class MarketService:
         
         try:
             source = self.source_service.get_source_by_id(source_id)
-            status_info = source.get_market_status(check_time, market)
+            status_info = source.get_market_status(market, check_time)
             
             status_emoji = "🟢" if status_info.is_open else "🔴"
-            logger.info(f"成功获取 {market.value} 市场状态: {status_emoji} {status_info.status_text}")
+            # logger.info(f"成功获取 {market.value} 市场状态: {status_emoji} {status_info.status_text}")
             
             return MarketStatusResponse(
                 source_id=source_id,

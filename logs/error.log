@@ -1,0 +1,22 @@
+2025-08-19 14:22:25 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:22:25 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:22:26 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:22:26 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:22:27 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:22:27 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:24:46 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:24:46 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:25:07 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:25:07 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:25:09 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:25:09 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:25:11 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:25:11 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:25:12 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:25:12 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:29:52 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:29:52 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:30:03 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:30:03 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable
+2025-08-19 14:31:24 ERROR    market_service | 获取市场状态失败: 'datetime.datetime' object has no attribute 'value'
+2025-08-19 14:31:24 ERROR    API | ❌ 未处理的异常: Object of type datetime is not JSON serializable

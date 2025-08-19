@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>市场股票监控中心</title>
+    <title>市场监控中心</title>
     <link rel="stylesheet" href="/static/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -16,7 +16,7 @@
             <div class="header-content">
                 <h1 class="title">
                     <span class="icon">📈</span>
-                    市场股票监控中心
+                    市场监控中心
                 </h1>
                 <div class="connection-status">
                     <span id="connectionStatus" class="status-indicator offline">离线</span>
@@ -78,20 +78,14 @@
                 </div>
             </section>
 
-            <!-- K线图表区域 -->
+            <!-- 实时价格图表 -->
             <section class="charts-section">
                 <div class="panel-header">
-                    <h2>K线图表</h2>
+                    <h2>实时价格图表</h2>
                     <div class="chart-controls">
                         <select id="chartMarket" class="select-input">
                             <option value="HSI">恒生指数</option>
                             <option value="NASDAQ">纳斯达克</option>
-                        </select>
-                        <select id="chartTimeframe" class="select-input">
-                            <option value="1m">1分钟</option>
-                            <option value="5m">5分钟</option>
-                            <option value="15m">15分钟</option>
-                            <option value="1h">1小时</option>
                         </select>
                     </div>
                 </div>
