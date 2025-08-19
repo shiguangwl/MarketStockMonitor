@@ -109,7 +109,7 @@ class DataProcessor:
                 processed_data.append(market_data)
                 
                 # 更新最新数据时间
-                if max_data_time is None or (item.time and item.time > max_data_time):
+                if max_data_time is None or item.time > max_data_time:
                     max_data_time = item.time
             
             total_processed += len(new_items)

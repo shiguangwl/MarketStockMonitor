@@ -61,6 +61,9 @@ class DataFetcher:
             logger.error(f"⏰ 获取{market.value} K线数据超时")
             future.cancel()
             return None
+        except ValueError as e:
+            logger.error(f"❌ 不支持的市场: {market.value}, 错误: {e}")
+            return None
         except Exception as e:
             logger.error(f"❌ 获取{market.value} K线数据失败: {e}")
             return None

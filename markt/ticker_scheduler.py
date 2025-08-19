@@ -17,13 +17,15 @@ logger = setup_logger("TickerScheduler")
 class TickerScheduler:
     """股票数据抓取调度器"""
 
-    def __init__(self):
+    def __init__(self, execution_time_warning_threshold: float = 5.0, misfire_grace_time: int = 30):
         self.scheduler = BackgroundScheduler()
         self.jobs: Dict[str, Job] = {}
         self.job_execution_times: Dict[str, float] = {}  # 记录任务执行时间
         self.job_error_counts: Dict[str, int] = {}  # 记录任务错误次数
         self.is_running = False
         self._lock = threading.Lock()
+        self.execution_time_warning_threshold = execution_time_warning_threshold
+        self.misfire_grace_time = misfire_grace_time
 
     def start(self) -> None:
         """启动调度器"""
@@ -59,7 +61,7 @@ class TickerScheduler:
                     self.job_error_counts[job_id] = 0
                 
                 # 如果执行时间过长，记录警告
-                if execution_time > 5.0:
+                if execution_time > self.execution_time_warning_threshold:
                     logger.warning(f"⚠️ 任务 {job_id} 执行时间较长: {execution_time:.2f}秒")
                 else:
                     logger.debug(f"✅ 任务 {job_id} 执行完成，耗时: {execution_time:.2f}秒")
@@ -115,7 +117,7 @@ class TickerScheduler:
                     id=job_id,
                     max_instances=1,  # 防止任务重叠执行
                     coalesce=True,  # 合并错过的任务
-                    misfire_grace_time=30,  # 错过执行时间的宽限期（秒）
+                    misfire_grace_time=self.misfire_grace_time,  # 错过执行时间的宽限期（秒）
                 )
 
                 self.jobs[job_id] = job
@@ -269,7 +271,12 @@ class TickerScheduler:
                 return False
 
             job = self.jobs[job_id]
-            return job.pending if hasattr(job, "pending") else False
+            # 使用更安全的方式检查任务状态
+            try:
+                return job.next_run_time is not None and not job.pending
+            except AttributeError:
+                # 如果属性不存在，返回 False
+                return False
 
     def get_job_performance_stats(self) -> Dict[str, Dict[str, Any]]:
         """

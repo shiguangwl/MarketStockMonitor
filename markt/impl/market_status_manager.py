@@ -31,7 +31,7 @@ class MarketStatusManager:
                 'is_active': True  # 是否应该继续抓取该市场的数据
             }
     
-    def should_continue_fetching(self, market: MarketSymbol) -> bool:
+    def should_continue_fetching(self, market: MarketSymbol, check_time: datetime = None) -> bool:
         """
         判断指定市场当前是否应继续抓取数据（包括延迟停止时间段）
         
@@ -42,9 +42,11 @@ class MarketStatusManager:
         Returns:
             bool: 是否应该继续抓取该市场的数据
         """
-        check_time = datetime.now()
+        if check_time is None:
+            check_time = datetime.now()
+            
         # 获取当前市场状态
-        market_status = self.get_market_status(market)
+        market_status = self.get_market_status(market, check_time)
         
         # 获取该市场的状态跟踪
         market_state = self.market_states[market]
@@ -56,7 +58,7 @@ class MarketStatusManager:
             market_state['is_active'] = True
         
         # 判断是否发生了状态切换：open -> close
-        if market_state['last_market_status'] is True and not market_status.is_open:
+        if market_state['last_market_status'] and not market_status.is_open:
             # 开始延迟停止计时
             market_state['delay_stop_time'] = check_time + timedelta(minutes=self.delay_stop_minutes)
             logger.info(f"🕒 {market.value}市场已关闭，将在{self.delay_stop_minutes}分钟后 ({market_state['delay_stop_time']}) 停止数据抓取")
@@ -90,10 +92,12 @@ class MarketStatusManager:
         Returns:
             list[MarketSymbol]: 应该继续抓取数据的市场列表
         """
+        if check_time is None:
+            check_time = datetime.now()
 
         active_markets = []
         for market in [MarketSymbol.HSI, MarketSymbol.NASDAQ]:
-            if self.should_continue_fetching(market):
+            if self.should_continue_fetching(market, check_time):
                 active_markets.append(market)
         
         return active_markets

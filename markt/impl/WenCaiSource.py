@@ -21,6 +21,7 @@ from models.market_data import (
     MarketData,
 )
 from wen_cai.price_data_point import ParsedTradingRule, SinaPriceDataPoint
+from wen_cai.sina_trading_hours_client import CurrentStatus, TradingDay
 from utils.logger_config import setup_logger
 
 logger = setup_logger("wen_cai_source")
@@ -109,11 +110,11 @@ class WenCaiSource(AbstractFetcher):
             supported_markets=[MarketSymbol.HSI, MarketSymbol.NASDAQ],
         )
 
-    def get_market_status(self, market: MarketSymbol, check_time: datetime = datetime.now()) -> object:
+    def get_market_status(self, market: MarketSymbol, check_time: datetime = datetime.now()) -> CurrentStatus:
         """获取当前时间的指定市场状态"""
         return self.market_status_manager.get_market_status(market, check_time)
 
-    def get_trading_hours(self, market: MarketSymbol) -> List[object]:
+    def get_trading_hours(self, market: MarketSymbol) -> List[TradingDay]:
         """获取指定市场交易时间表"""
         return self.market_status_manager.get_trading_hours(market)
 
@@ -146,7 +147,7 @@ class WenCaiSource(AbstractFetcher):
     def _update_realtime_data(self) -> None:
         """实时数据更新"""
         # 获取当前应该继续抓取数据的市场列表
-        active_markets = self.market_status_manager.get_active_markets()
+        active_markets = self.market_status_manager.get_active_markets(datetime.now())
         
         if not active_markets:
             logger.debug("📊 当前没有活跃的市场，跳过实时数据更新")
@@ -174,7 +175,7 @@ class WenCaiSource(AbstractFetcher):
         
         try:
             # 获取当前应该继续抓取数据的市场列表
-            active_markets = self.market_status_manager.get_active_markets()
+            active_markets = self.market_status_manager.get_active_markets(datetime.now())
             
             # 首次运行时即使市场关闭也要执行一次
             if self.market_status_manager.is_first_run_flag():
@@ -188,7 +189,7 @@ class WenCaiSource(AbstractFetcher):
             future = self.executor.submit(self._fetch_kline_data, active_markets)
             try:
                 result = future.result(timeout=self.config.kline_fetch_timeout)
-                if result:
+                if result is not None:
                     max_data_time, processed_count = result
                     if max_data_time is not None:
                         if self.last_update_time is None:
