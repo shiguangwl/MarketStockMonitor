@@ -63,6 +63,7 @@ class WenCaiSource(AbstractFetcher):
         # 重置状态
         self.last_update_time = None
         self.last_notification_count = 0
+        self.is_first_run_flag = True
 
         # 获取全局调度器
         scheduler = get_global_scheduler()
@@ -107,7 +108,7 @@ class WenCaiSource(AbstractFetcher):
         return MarketSourceInfo(
             source_id="wen_cai",
             source_name="问财",
-            supported_markets=[MarketSymbol.HSI, MarketSymbol.NASDAQ],
+            supported_markets=[MarketSymbol.NASDAQ, MarketSymbol.HSI],
         )
 
     def get_market_status(self, market: MarketSymbol, check_time: datetime = datetime.now()) -> CurrentStatus:
@@ -178,9 +179,10 @@ class WenCaiSource(AbstractFetcher):
             active_markets = self.market_status_manager.get_active_markets(datetime.now())
             
             # 首次运行时即使市场关闭也要执行一次
-            if self.market_status_manager.is_first_run_flag():
-                self.market_status_manager.reset_first_run_flag()
-                active_markets = [MarketSymbol.HSI, MarketSymbol.NASDAQ]  # 首次运行获取所有市场数据
+            if self.is_first_run_flag:
+                # 首次运行获取所有市场数据
+                active_markets = [MarketSymbol.NASDAQ, MarketSymbol.HSI]  
+                self.is_first_run_flag = False
             elif not active_markets:
                 logger.debug("📊 当前没有活跃的市场，跳过K线数据更新")
                 return
