@@ -57,16 +57,17 @@ class MarketStatusManager:
         # --- 状态切换检测 ---
         # 从 休市 -> 开市
         if last_status_is_open is False and market_status.is_open:
-            if market_state["delay_start_time"] is None:
+            # 如果当前正处于延迟停止状态，说明市场在缓冲期内恢复，应立即恢复抓取
+            if market_state["delay_stop_time"] is not None:
+                logger.info(f"📈 {market.value}市场在延迟停止期间重新开市，立即恢复抓取")
+                market_state["delay_stop_time"] = None
+            elif market_state["delay_start_time"] is None:
                 market_state["delay_start_time"] = check_time + timedelta(
                     minutes=self.delay_start_minutes
                 )
                 logger.info(
                     f"🔄 {market.value}市场变为开市，启动 {self.delay_start_minutes} 分钟延迟确认..."
                 )
-            if market_state["delay_stop_time"] is not None:
-                logger.info(f"📈 {market.value}市场重新开市，取消延迟停止状态")
-                market_state["delay_stop_time"] = None
 
         # 从 开市 -> 休市
         elif last_status_is_open is True and not market_status.is_open:

@@ -12,7 +12,7 @@ class WenCaiConfig:
     """问财数据源配置"""
     
     # 调度配置
-    realtime_update_interval: int = 1.5  # 实时数据更新间隔（秒）
+    realtime_update_interval: int = 5  # 实时数据更新间隔（秒）
     kline_update_interval: int = 10      # K线数据更新间隔（秒）
     
     # 超时配置
