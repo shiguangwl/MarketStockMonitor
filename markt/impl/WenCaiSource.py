@@ -70,12 +70,13 @@ class WenCaiSource(AbstractFetcher):
         scheduler.start()
 
         # 添加数据更新任务
-        scheduler.add_interval_job(
-            job_id="wen_cai_data_update_realtime",
-            func=self._update_realtime_data,
-            seconds=self.config.realtime_update_interval,
-            description="问财数据更新-实时数据",
-        )
+        if self.config.realtime_update_enabled:
+            scheduler.add_interval_job(
+                job_id="wen_cai_data_update_realtime",
+                func=self._update_realtime_data,
+                seconds=self.config.realtime_update_interval,
+                description="问财数据更新-实时数据",
+            )
         
         scheduler.add_interval_job(
             job_id="wen_cai_data_update_kline",
