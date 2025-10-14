@@ -6,10 +6,16 @@ set -e
 # ===========================================
 # 配置区域 - 请修改为你的服务器信息
 # ===========================================
+# SERVER_USER="root"                    # 服务器用户名
+# SERVER_HOST="192.168.1.250"          # 服务器IP地址
+# SERVER_PORT="22"                      # SSH端口
+# SERVER_PASSWORD="ojbk"       # 服务器密码 - 请修改为实际密码
+
 SERVER_USER="root"                    # 服务器用户名
 SERVER_HOST="192.168.1.250"          # 服务器IP地址
-SERVER_PORT="22"                      # SSH端口
-SERVER_PASSWORD="ojbk"       # 服务器密码 - 请修改为实际密码
+SERVER_PORT="33005"                      # SSH端口
+SERVER_PASSWORD="uQU+50WBkKQKkPTm"       # 服务器密码 - 请修改为实际密码
+
 REMOTE_PATH="/root/MarketStockMonitor" # 服务器上的项目路径
 TEMP_PATH="/tmp/MarketStockMonitor-$(date +%s)" # 临时文件夹路径
 
@@ -178,6 +184,7 @@ build_and_deploy() {
             -p $APP_PORT:$APP_PORT \
             --restart unless-stopped \
             -v $REMOTE_PATH/logs:/app/logs \
+            --network 1panel-network \
             $IMAGE_NAME
         
         if [ \$? -eq 0 ]; then

@@ -14,11 +14,11 @@ class WenCaiConfig:
     # 调度配置
     realtime_update_enabled: bool = False  # 是否启用实时数据更新
     realtime_update_interval: int = 5  # 实时数据更新间隔（秒）
-    kline_update_interval: int = 10      # K线数据更新间隔（秒）
+    kline_update_interval: int = 30      # K线数据更新间隔（秒）
     
     # 超时配置
-    kline_fetch_timeout: float = 8.0     # K线数据获取超时时间（秒）
-    single_source_timeout: float = 3.0   # 单个数据源超时时间（秒）
+    kline_fetch_timeout: float = 30     # K线数据获取超时时间（秒）
+    single_source_timeout: float = 15   # 单个数据源超时时间（秒）
     
     # 线程池配置
     max_workers: int = 2                 # 线程池最大工作线程数

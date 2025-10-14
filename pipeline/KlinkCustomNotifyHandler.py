@@ -18,7 +18,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
 
     def __init__(
         self,
-        notify_url: str = "http://192.168.1.250:8087/api/draw/openDraw",
+        notify_url: str = "http://lottery-api:8087/api/draw/openDraw",
         secret_key: str = "InrKOvmSZjsCxkwLxT0rTg==",
         request_timeout: int = 15,
         queue_max_size: int = 1000,
@@ -77,7 +77,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
 
                 if data_to_process is None:  # 停止信号
                     break
-                
+
                 logger.info(f"📥 从队列中获取待处理数据: {data_to_process}")
 
                 # 循环重试，直到通知成功或处理器关闭
@@ -85,7 +85,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
                 while self._running:
                     attempt_count += 1
                     logger.info(f"📡 第 {attempt_count} 次尝试通知: {data_to_process.symbol.value}")
-                    
+
                     success = self.remote_notifier.send_notification(data_to_process)
 
                     if success:
@@ -152,13 +152,13 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
         return data.type == MarketDataType.KLINE1M
 
     def _is_quarter_minute(self, data: MarketData) -> bool:
-        """检查是否为15分钟的整数倍(00、15、30、45分钟) 或 特殊时间 16:10"""
+        """检查是否为5分钟的整数倍"""
         if hasattr(data, "timestamp") and isinstance(data.timestamp, datetime):
             minute = data.timestamp.minute
             hour = data.timestamp.hour
-            is_quarter = minute % 15 == 0
+            is_quarter = minute % 5 == 0
             is_special_time = (hour == 16 and minute == 10)
-            
+
             if is_special_time:
                 logger.info(f"🎯 命中特殊时间 16:10，准备通知: {data}")
             return is_quarter or is_special_time
@@ -178,7 +178,7 @@ class KlinkCustomNotifyHandler(AbstractProcessingHandler):
         """关闭处理器，释放资源"""
         if not self._running:
             return
-            
+
         logger.info("🛑 开始关闭K线通知处理器...")
         self._running = False
 
